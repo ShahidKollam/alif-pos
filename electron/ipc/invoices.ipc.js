@@ -17,5 +17,6 @@ export function registerInvoicesIpc() {
     return h.saveInvoice(data);
   }));
   ipcMain.handle('invoices:get', wrap((_, id) => h.getInvoice(asId(id))));
+  ipcMain.handle('invoices:getByNumber', wrap((_, n) => h.getInvoiceByNumber(String(n || ''))));
   ipcMain.handle('invoices:list', wrap((_, f) => h.listInvoices(f || {})));
 }
