@@ -1,32 +1,20 @@
 # Alif POS — Version History
 
-## v2.2.9 — Billing UX polish (verify column, dropdown, add customer)
+## v2.3.0 — Receipt numbers W/R-YY-MM-AA-###, save-in-place, UX keys
 
-- Verify checkbox moved next to # (before product name); ↑↓ moves between verify boxes
-- Product dropdown only after typing (not on focus when returning to tab)
-- Dropdown flips upward near table bottom; shows stock + W + R rates
-- Same product already on bill marked “On bill” and not re-added
-- W/R: press W or R when control focused
-- Customer: + icon and “Add this customer” in dropdown; name+phone modal
-- Bolder product names; qty/rate inputs borderless in table cells
+- Receipt format: `W-YY-MM-AA-001` / `R-YY-MM-AA-001`; period sequences in DB (migration 3); independent W/R; AA…ZZ then AAA
+- Save keeps the bill open for further items (update same invoice)
+- WhatsApp / Print require save first; WhatsApp uses shell.openExternal
+- Tabs show customer name when set
+- F3 add customer (Billing + Customers); Alt+0 Products + Add Product
+- Category column on bill lines (default General)
+- Product dropdown arrows skip items already on bill; customer dropdown keyboard
+- ↑↓ between product rows when dropdown closed
 
-## v2.2.8 — Inline billing table entry, bill W/R, verify, WhatsApp
+## v2.2.9 — Billing UX polish
 
-- Removed separate product entry bar; enter items directly in the billing table
-- Columns: # · Product (inline search) · ✓ verified · Qty · Rate · Amount
-- Single bill-level W/R control after Customer, before Bill date
-- No product codes shown on Billing; codes auto-generated internally on create
-- Verification checkbox per line; included in WhatsApp + print text
-- WhatsApp Bill button opens wa.me with customer phone when available
-- Table area scrolls independently (page chrome stays fixed)
-- Stock table: removed per-line W/R price column
-- Products add form: no Code field (auto P00001-style)
+- Verify after #; type-to-search dropdown; W/R rates in list; add customer modal
 
-## v2.2.7 — Serial numbers on all tables + Billing table aligned to Products
+## Earlier
 
-- Sequential roll numbers on main tables
-- Billing table design aligned with Products
-
-## Earlier versions
-
-See repository history for v2.2.6 and below.
+See git history for v2.2.8 and below.
