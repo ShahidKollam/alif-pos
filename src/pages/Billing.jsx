@@ -122,8 +122,7 @@ export default function Billing({ showToast }) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); window.dispatchEvent(new CustomEvent('alif:save-bill')); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
-        if (tabs.length > 1) closeTab(activeId);
-        else showToast('Cannot close the last bill tab', 'error');
+        closeTab(activeId);
       }
     };
     window.addEventListener('keydown', key);
@@ -163,8 +162,13 @@ export default function Billing({ showToast }) {
   function closeTab(id, e) {
     e?.stopPropagation();
     setTabs((prev) => {
-      if (prev.length === 1) return prev;
       const next = prev.filter((x) => x.id !== id);
+      if (next.length === 0) {
+        const t = newTab();
+        setActiveId(t.id);
+        loadInvoiceNo(t.id, t.billMode);
+        return [t];
+      }
       if (activeId === id) setActiveId(next[next.length - 1].id);
       return next;
     });
@@ -190,10 +194,30 @@ export default function Billing({ showToast }) {
       rateOverride: it.unitPrice != null ? String(it.unitPrice) : '', verified: false
     }));
     items.push(emptyRow());
+    let phone = '';
+    let outstanding = 0;
+    let advance = 0;
+    if (inv.customerId) {
+      const fromList = customers.find((c) => Number(c.id) === Number(inv.customerId));
+      if (fromList) {
+        phone = fromList.phone || '';
+        outstanding = fromList.outstanding || 0;
+        advance = fromList.advance || 0;
+      } else {
+        try {
+          const c = await api.customers.get(inv.customerId);
+          if (c) {
+            phone = c.phone || '';
+            outstanding = c.outstanding || 0;
+            advance = c.advance || 0;
+          }
+        } catch (_) {}
+      }
+    }
     const patch = {
       savedInvoiceId: inv.id, invoiceNo: inv.invoiceNumber, billMode: inv.billingMode === 'retail' ? 'retail' : 'wholesale',
       customerId: inv.customerId || null, customerName: inv.customerName || '', customerQuery: inv.customerName || '',
-      customerPhone: '', customerOutstanding: 0, customerAdvance: 0, discount: inv.discount || 0,
+      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: advance, discount: inv.discount || 0,
       amountReceived: inv.amountReceived != null ? String(inv.amountReceived) : '', amountEdited: true, notes: inv.notes || '', items
     };
     if (preferTabId) { updateTab(preferTabId, patch); setActiveId(preferTabId); }
@@ -381,15 +405,47 @@ export default function Billing({ showToast }) {
     return lines.join('\n');
   }
 
+  function normalizeWhatsAppPhone(raw) {
+    let d = String(raw || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length === 10) d = '91' + d;
+    if (d.length === 11 && d.startsWith('0')) d = '91' + d.slice(1);
+    return d;
+  }
+
   async function shareWhatsApp() {
     if (!filledItems.length) { showToast('Add items before sharing', 'error'); return; }
     if (!tab.savedInvoiceId) { showToast('Save the bill first, then share on WhatsApp', 'error'); return; }
+
+    let phoneRaw = tab.customerPhone || '';
+    if (!phoneRaw && tab.customerId) {
+      const fromList = customers.find((c) => Number(c.id) === Number(tab.customerId));
+      if (fromList?.phone) phoneRaw = fromList.phone;
+      else {
+        try {
+          const c = await api.customers.get(tab.customerId);
+          if (c?.phone) {
+            phoneRaw = c.phone;
+            updateTab(tab.id, { customerPhone: c.phone });
+          }
+        } catch (_) {}
+      }
+    }
+
+    const phone = normalizeWhatsAppPhone(phoneRaw);
+    if (!phone) {
+      showToast('Add customer mobile number to open WhatsApp chat', 'error');
+      return;
+    }
+
     const text = encodeURIComponent(buildWhatsAppText());
-    let phone = (tab.customerPhone || '').replace(/\D/g, '');
-    if (phone.length === 10) phone = '91' + phone;
-    const url = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-    try { if (api.openExternal) await api.openExternal(url); else window.open(url, '_blank'); }
-    catch { window.open(url, '_blank'); }
+    const url = `https://wa.me/${phone}?text=${text}`;
+    try {
+      if (api.openExternal) await api.openExternal(url);
+      else window.open(url, '_blank');
+    } catch {
+      window.open(url, '_blank');
+    }
   }
 
   function placeDropdown(rowKey) {
@@ -472,7 +528,7 @@ export default function Billing({ showToast }) {
         {tabs.map((t) => (
           <button key={t.id} type="button" className={`tab ${t.id === activeId ? 'active' : ''}`} onClick={() => setActiveId(t.id)}>
             <span className="truncate">{(t.customerName || '').trim() ? t.customerName : (t.invoiceNo || 'New bill')}{(t.items || []).filter((i) => i.productId).length ? ` · ${(t.items || []).filter((i) => i.productId).length}` : ''}</span>
-            {tabs.length > 1 && (<span className="close" onClick={(e) => closeTab(t.id, e)}><X size={12} /></span>)}
+            <span className="close" onClick={(e) => closeTab(t.id, e)} title="Close tab (Ctrl+W)"><X size={12} /></span>
           </button>
         ))}
         <button type="button" className="ml-1 px-2.5 py-1.5 text-slate-500 hover:text-blue-600 self-center rounded-lg hover:bg-white/80" title="New bill (Ctrl+T / F8)" onClick={addTab}><Plus size={16} /></button>
