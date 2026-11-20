@@ -40,7 +40,6 @@ function persistNow() {
   fs.writeFileSync(dbPath, Buffer.from(data));
 }
 
-/** Normalize params: undefined → null (sql.js rejects undefined) */
 function normParams(params) {
   if (!params || !params.length) return [];
   return params.map((v) => (v === undefined ? null : v));
@@ -295,6 +294,27 @@ function runMigrations() {
       rawDb.run('INSERT INTO schema_migrations (version) VALUES (2)');
       rawDb.run('COMMIT');
       console.log('Migration 2 applied');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
+
+  if (!applied.has(3)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.exec(`
+        CREATE TABLE IF NOT EXISTS invoice_period_sequences (
+          mode TEXT NOT NULL,
+          period TEXT NOT NULL,
+          series TEXT NOT NULL DEFAULT 'AA',
+          last_number INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (mode, period)
+        );
+      `);
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (3)');
+      rawDb.run('COMMIT');
+      console.log('Migration 3 applied');
     } catch (e) {
       try { rawDb.run('ROLLBACK'); } catch (_) {}
       throw e;
