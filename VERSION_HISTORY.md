@@ -1,5 +1,12 @@
 # Alif POS — Version History
 
+## v2.2.7 — Serial numbers on all tables + Billing table aligned to Products
+
+- Sequential roll numbers (# 1, 2, 3…) on every main table: Billing items, Products, Customers, Stock, Sales, Ledger, Reports (low stock), and Sales invoice detail
+- Billing items table now uses the same `pos-table-wrap` / `pos-table` design as Products (column sizing, row height, borders)
+- Product names and item details use dark, semi-bold readable text; compact padding kept
+- No business logic or API changes
+
 ## v2.2.6 — UI consistency refinements (sidebar, buttons, billing)
 
 - Primary buttons (Add Item, Save Bill, etc.) use sidebar navy `#0b1220`
