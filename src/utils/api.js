@@ -7,6 +7,7 @@ async function notAvailable() {
 const a = () => getAlif();
 
 export const api = {
+  openExternal: (url) => (a() && a().shell?.openExternal ? a().shell.openExternal(url) : Promise.resolve(window.open(url, '_blank'))),
   products: {
     list: (f) => a() ? a().products.list(f) : Promise.resolve([]),
     get: (id) => a() ? a().products.get(id) : Promise.resolve(null),
@@ -17,7 +18,7 @@ export const api = {
     categories: () => a() ? a().products.categories() : Promise.resolve([])
   },
   invoices: {
-    nextNumber: (m) => a() ? a().invoices.nextNumber(m) : Promise.resolve('W-000001'),
+    nextNumber: (m, d) => a() ? a().invoices.nextNumber(m, d) : Promise.resolve('W-26-11-AA-001'),
     save: (d) => a() ? a().invoices.save(d) : notAvailable(),
     get: (id) => a() ? a().invoices.get(id) : Promise.resolve(null),
     list: (f) => a() ? a().invoices.list(f) : Promise.resolve([])
@@ -38,7 +39,7 @@ export const api = {
   },
   settings: {
     get: (k) => a() ? a().settings.get(k) : Promise.resolve(null),
-    set: (k, v) => a() ? a().settings.set(k, v) : Promise.resolve(true)
+    set: (k, v) => a() ? a().settings.set(k, v) : notAvailable()
   },
   backup: {
     create: () => a() ? a().backup.create() : notAvailable(),
@@ -47,11 +48,13 @@ export const api = {
     paths: () => a() ? a().backup.paths() : Promise.resolve({})
   },
   demo: {
-    load: () => a() ? a().demo.load() : Promise.resolve({ alreadyLoaded: false, count: 0 }),
-    reset: () => a() ? a().demo.reset() : Promise.resolve({ reset: true })
+    load: () => a() ? a().demo.load() : notAvailable(),
+    reset: () => a() ? a().demo.reset() : notAvailable()
   },
   app: {
-    info: () => a() ? a().app.info() : Promise.resolve({ version: '2.0.0-dev', isPackaged: false })
+    info: () => a() ? a().app.info() : Promise.resolve({ name: 'Alif POS', version: 'dev' })
   },
-  get isElectron() { return !!getAlif(); }
+  get isElectron() {
+    return !!getAlif();
+  }
 };

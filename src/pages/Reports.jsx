@@ -52,10 +52,10 @@ export default function Reports() {
           <div className="panel p-4">
             <h2 className="text-sm font-semibold mb-2">Low stock</h2>
             <table className="pos-table">
-              <thead><tr><th>Product</th><th className="text-right">Stock</th><th className="text-right">Min</th></tr></thead>
+              <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Product</th><th className="text-right">Stock</th><th className="text-right">Min</th></tr></thead>
               <tbody>
-                {lowStock.map((p) => (
-                  <tr key={p.id}><td>{p.name}</td><td className="text-right">{p.currentStock}</td><td className="text-right">{p.minStockLevel}</td></tr>
+                {lowStock.map((p, idx) => (
+                  <tr key={p.id}><td className="text-center text-slate-500 font-medium">{idx + 1}</td><td className="font-medium text-black">{p.name}</td><td className="text-right">{p.currentStock}</td><td className="text-right">{p.minStockLevel}</td></tr>
                 ))}
               </tbody>
             </table>
