@@ -10,8 +10,11 @@ contextBridge.exposeInMainWorld('alif', {
     search: (q) => ipcRenderer.invoke('products:search', q),
     categories: () => ipcRenderer.invoke('products:categories')
   },
+  shell: {
+    openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
+  },
   invoices: {
-    nextNumber: (m) => ipcRenderer.invoke('invoices:nextNumber', m),
+    nextNumber: (m, invoiceDate) => ipcRenderer.invoke('invoices:nextNumber', m, invoiceDate),
     save: (d) => ipcRenderer.invoke('invoices:save', d),
     get: (id) => ipcRenderer.invoke('invoices:get', id),
     list: (f) => ipcRenderer.invoke('invoices:list', f)
