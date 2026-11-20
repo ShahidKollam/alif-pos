@@ -32,11 +32,12 @@ export default function Sales({ showToast }) {
       </PageToolbar>
 <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap"><table className="pos-table">
-          <thead><tr><th>Invoice</th><th>Date</th><th>Mode</th><th>Customer</th><th className="text-right">Total</th><th className="text-right">Received</th><th className="text-right">Due</th><th></th></tr></thead>
+          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Invoice</th><th>Date</th><th>Mode</th><th>Customer</th><th className="text-right">Total</th><th className="text-right">Received</th><th className="text-right">Due</th><th></th></tr></thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r, idx) => (
               <tr key={r.id}>
-                <td className="font-mono font-medium">{r.invoiceNumber}</td>
+                <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
+                <td className="font-mono font-medium text-black">{r.invoiceNumber}</td>
                 <td className="text-xs text-slate-500">{r.invoiceDate}</td>
                 <td><span className={`badge ${r.billingMode === 'wholesale' ? 'badge-blue' : 'badge-slate'}`}>{r.billingMode}</span></td>
                 <td>{r.customerName || '—'}</td>
@@ -46,7 +47,7 @@ export default function Sales({ showToast }) {
                 <td><button className="p-1 text-slate-400 hover:text-blue-600" onClick={() => open(r.id)}><Eye size={14} /></button></td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={8} className="text-center text-slate-400 py-10">No invoices yet</td></tr>}
+            {!rows.length && <tr><td colSpan={9} className="text-center text-slate-400 py-10">No invoices yet</td></tr>}
           </tbody>
         </table></div>
       </div>
@@ -62,10 +63,10 @@ export default function Sales({ showToast }) {
             </div>
             <div className="px-5 py-3 max-h-72 overflow-auto">
               <table className="pos-table">
-                <thead><tr><th>Item</th><th className="text-right">Qty</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
+                <thead><tr><th className="text-center" style={{ width: 36 }}>#</th><th>Item</th><th className="text-right">Qty</th><th className="text-right">Rate</th><th className="text-right">Amount</th></tr></thead>
                 <tbody>
-                  {(detail.items || []).map((it) => (
-                    <tr key={it.id}><td>{it.productName}</td><td className="text-right">{it.quantity}</td><td className="text-right">{formatINR(it.unitPrice)}</td><td className="text-right">{formatINR(it.amount)}</td></tr>
+                  {(detail.items || []).map((it, idx) => (
+                    <tr key={it.id}><td className="text-center text-slate-500">{idx + 1}</td><td className="font-medium text-black">{it.productName}</td><td className="text-right">{it.quantity}</td><td className="text-right">{formatINR(it.unitPrice)}</td><td className="text-right">{formatINR(it.amount)}</td></tr>
                   ))}
                 </tbody>
               </table>
