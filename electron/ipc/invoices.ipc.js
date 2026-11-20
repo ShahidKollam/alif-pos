@@ -10,6 +10,16 @@ function wrap(fn) {
 }
 
 export function registerInvoicesIpc() {
+  const channels = [
+    'invoices:nextNumber',
+    'invoices:save',
+    'invoices:get',
+    'invoices:getByNumber',
+    'invoices:list'
+  ];
+  for (const ch of channels) {
+    try { ipcMain.removeHandler(ch); } catch (_) {}
+  }
   ipcMain.handle('invoices:nextNumber', wrap((_, m, invoiceDate) => h.getNextInvoiceNumber(asMode(m), invoiceDate)));
   ipcMain.handle('invoices:save', wrap((_, d) => {
     const data = asObject(d);

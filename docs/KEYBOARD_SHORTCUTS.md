@@ -13,6 +13,7 @@ Reference for cashiers and for the in-app Help window (**F1**).
 | **F11** | Toggle full screen |
 | **Ctrl+S** / **Cmd+S** | Save or update the current bill (Billing) |
 | **Ctrl+T** / **Cmd+T** | New bill tab |
+| **Ctrl+W** / **Cmd+W** | Close current bill tab |
 | **Alt+0** | Products page + Add product modal |
 | **Alt+1** | Open the **last saved bill** — focuses existing tab if open, otherwise loads it in a new tab |
 
@@ -41,10 +42,11 @@ Reference for cashiers and for the in-app Help window (**F1**).
 
 | Action | Behaviour |
 |--------|-----------|
-| Edit **Bill no.** and press **Enter** | Search and **load** that invoice into the current tab if found |
+| Edit **Bill no.** and press **Enter** | Search and load that invoice. If the current tab has line items, opens in a **new tab**; if the tab is empty, loads in the **same tab**. |
 
 ## Notes
 
 - Product codes are not shown on Billing; they stay internal.
 - WhatsApp and Print require the bill to be **saved** first.
 - After **Save**, the bill stays open so you can add lines and **Update**.
+- Category shows the product’s own category; **General** only when the product has none.
