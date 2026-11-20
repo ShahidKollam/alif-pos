@@ -98,6 +98,11 @@ export function createProduct(data) {
   );
 
   const id = result.lastInsertRowid;
+  // Internal unique code if user did not supply one
+  if (!code) {
+    const auto = `P${String(id).padStart(5, '0')}`;
+    db.prepare('UPDATE products SET product_code = ? WHERE id = ?').run(auto, id);
+  }
   if (opening > 0) {
     db.prepare(`
       INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, notes)
