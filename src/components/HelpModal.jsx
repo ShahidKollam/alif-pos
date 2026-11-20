@@ -8,6 +8,7 @@ const shortcuts = [
   { key: 'F11', desc: 'Full screen on / off' },
   { key: 'Ctrl+S', desc: 'Save / update current bill' },
   { key: 'Ctrl+T', desc: 'New bill tab' },
+  { key: 'Ctrl+W', desc: 'Close current bill tab' },
   { key: 'Alt+0', desc: 'Products + open Add product' },
   { key: 'Alt+1', desc: 'Open last saved bill (tab or new)' },
   { key: 'W / R', desc: 'Wholesale / Retail (when W/R focused)' },
