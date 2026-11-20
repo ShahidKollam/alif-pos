@@ -131,6 +131,7 @@ export default function Customers({ showToast }) {
           <table className="pos-table">
             <thead>
               <tr>
+                <th className="text-center" style={{ width: 40 }}>#</th>
                 <th>Name</th>
                 <th>Phone</th>
                 <th className="text-right num">Outstanding</th>
@@ -141,9 +142,10 @@ export default function Customers({ showToast }) {
               </tr>
             </thead>
             <tbody>
-              {list.map((c) => (
+              {list.map((c, idx) => (
                 <tr key={c.id}>
-                  <td className="font-medium">{c.name}</td>
+                  <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
+                  <td className="font-medium text-black">{c.name}</td>
                   <td>{c.phone || '—'}</td>
                   <td className={`text-right num font-medium ${c.outstanding > 0 ? 'text-amber-700' : ''}`}>
                     {formatINR(c.outstanding)}
@@ -182,7 +184,7 @@ export default function Customers({ showToast }) {
               ))}
               {!list.length && (
                 <tr>
-                  <td colSpan={5} className="text-center text-slate-400 py-10">
+                  <td colSpan={6} className="text-center text-slate-400 py-10">
                     No customers
                   </td>
                 </tr>
