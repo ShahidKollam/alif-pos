@@ -20,7 +20,6 @@ function mapInvoice(row) {
   };
 }
 
-/** YY-MM from bill date (local) */
 export function periodFromDate(invoiceDate) {
   let d;
   if (invoiceDate) {
@@ -35,7 +34,6 @@ export function periodFromDate(invoiceDate) {
   return { yy, mm, period: `${yy}-${mm}` };
 }
 
-/** AA → AB … ZZ → AAA → AAB … */
 export function incrementSeries(series) {
   const arr = String(series || 'AA').split('').map((c) => c.charCodeAt(0) - 65);
   let i = arr.length - 1;
@@ -54,7 +52,6 @@ function formatInvoiceNumber(mode, yy, mm, series, num) {
   return `${prefix}-${yy}-${mm}-${series}-${String(num).padStart(3, '0')}`;
 }
 
-/** Peek next number without consuming (for UI). */
 export function getNextInvoiceNumber(mode, invoiceDate) {
   const m = mode === 'retail' ? 'retail' : 'wholesale';
   const { yy, mm, period } = periodFromDate(invoiceDate);
@@ -72,7 +69,6 @@ export function getNextInvoiceNumber(mode, invoiceDate) {
   return formatInvoiceNumber(m, yy, mm, nextSer, 1);
 }
 
-/** Allocate next number atomically inside an open transaction. */
 function allocateInvoiceNumber(db, mode, invoiceDate) {
   const m = mode === 'retail' ? 'retail' : 'wholesale';
   const { yy, mm, period } = periodFromDate(invoiceDate);
@@ -282,10 +278,16 @@ export function getInvoice(id) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
   if (!row) return null;
-  const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(id).map((it) => ({
+  const items = db.prepare(`
+    SELECT ii.*, p.category AS product_category
+    FROM invoice_items ii
+    LEFT JOIN products p ON p.id = ii.product_id
+    WHERE ii.invoice_id = ?
+  `).all(id).map((it) => ({
     id: it.id,
     productId: it.product_id,
     productName: it.product_name,
+    category: (it.product_category && String(it.product_category).trim()) || null,
     quantity: it.quantity,
     unitPrice: fromPaise(it.unit_price_paise),
     amount: fromPaise(it.amount_paise),
@@ -299,8 +301,14 @@ export function getInvoiceByNumber(invoiceNumber) {
   const db = getDb();
   const num = String(invoiceNumber || '').trim();
   if (!num) return null;
-  const row = db.prepare('SELECT * FROM invoices WHERE invoice_number = ? COLLATE NOCASE').get(num)
-    || db.prepare('SELECT * FROM invoices WHERE invoice_number LIKE ? ORDER BY created_at DESC LIMIT 1').get(`%${num}%`);
+  let row = db.prepare(
+    'SELECT * FROM invoices WHERE lower(invoice_number) = lower(?) ORDER BY created_at DESC LIMIT 1'
+  ).get(num);
+  if (!row) {
+    row = db.prepare(
+      'SELECT * FROM invoices WHERE invoice_number LIKE ? ORDER BY created_at DESC LIMIT 1'
+    ).get(`%${num}%`);
+  }
   if (!row) return null;
   return getInvoice(row.id);
 }
