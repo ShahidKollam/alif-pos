@@ -50,7 +50,9 @@ export default function Products({ showToast }) {
     setSaving(true);
     try {
       const payload = {
-        name: form.name, productCode: form.productCode || null, category: form.category || null, unit: form.unit || 'piece',
+        name: form.name,
+        productCode: modal === 'add' ? null : (form.productCode || null),
+        category: form.category || null, unit: form.unit || 'piece',
         purchaseCost: Number(form.purchaseCost) || 0, wholesalePrice: Number(form.wholesalePrice) || 0,
         retailPrice: Number(form.retailPrice) || 0, openingStock: Number(form.openingStock) || 0, minStockLevel: Number(form.minStockLevel) || 0
       };
@@ -119,7 +121,9 @@ export default function Products({ showToast }) {
             </div>
             <div className="px-5 py-4 grid grid-cols-2 gap-3 text-sm">
               <div className="col-span-2"><label className="text-xs text-slate-500">Name *</label><input className="field mt-1" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus /></div>
-              <div><label className="text-xs text-slate-500">Code / SKU</label><input className="field mt-1" value={form.productCode} onChange={(e) => setForm({ ...form, productCode: e.target.value })} /></div>
+              {modal !== 'add' && (
+              <div><label className="text-xs text-slate-500">Code (auto)</label><input className="field mt-1 bg-slate-50" value={form.productCode} readOnly /></div>
+              )}
               <div><label className="text-xs text-slate-500">Category</label><input className="field mt-1" list="cats" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /><datalist id="cats">{categories.map((c) => <option key={c} value={c} />)}</datalist></div>
               <div><label className="text-xs text-slate-500">Unit</label>
                 <select className="field mt-1" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
