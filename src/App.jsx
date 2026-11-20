@@ -31,7 +31,6 @@ export default function App() {
         if (!api.isElectron) {
           showToast('Open with npm run electron:dev — browser-only mode cannot save data', 'error');
         } else {
-          // Always ensure sample products exist for first run / empty DB
           const products = await api.products.list({ activeOnly: false });
           if (!products || products.length === 0) {
             const res = await api.demo.load();
@@ -69,10 +68,20 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      const tag = e.target.tagName;
-      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
       if (e.key === 'F1') { e.preventDefault(); setShowHelp(true); return; }
       if (e.key === 'F2') { e.preventDefault(); setPage('products'); window.dispatchEvent(new CustomEvent('alif:open-add-product')); return; }
+      if (e.key === 'F3') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:open-add-customer'));
+        else { setPage('customers'); window.dispatchEvent(new CustomEvent('alif:open-add-customer')); }
+        return;
+      }
+      if (e.altKey && (e.key === '0' || e.code === 'Digit0')) {
+        e.preventDefault();
+        setPage('products');
+        setTimeout(() => window.dispatchEvent(new CustomEvent('alif:open-add-product')), 50);
+        return;
+      }
       if (e.key === 'F8') { e.preventDefault(); setPage('billing'); window.dispatchEvent(new CustomEvent('alif:new-bill')); return; }
       if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
