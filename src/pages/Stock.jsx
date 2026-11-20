@@ -33,11 +33,12 @@ export default function Stock({ showToast }) {
       </PageToolbar>
       <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap"><table className="pos-table">
-          <thead><tr><th>Product</th><th>Code</th><th className="text-right">Stock</th><th className="text-right">Min</th><th className="text-right">W / R</th><th></th></tr></thead>
+          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Product</th><th>Code</th><th className="text-right">Stock</th><th className="text-right">Min</th><th className="text-right">W / R</th><th></th></tr></thead>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r, idx) => (
               <tr key={r.id}>
-                <td className="font-medium">{r.name}{r.isLowStock && <span className="badge badge-amber ml-2">Low</span>}</td>
+                <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
+                <td className="font-medium text-black">{r.name}{r.isLowStock && <span className="badge badge-amber ml-2">Low</span>}</td>
                 <td className="text-xs font-mono text-slate-500">{r.productCode || '—'}</td>
                 <td className="text-right font-semibold">{r.currentStock}</td>
                 <td className="text-right text-slate-500">{r.minStockLevel}</td>
@@ -45,7 +46,7 @@ export default function Stock({ showToast }) {
                 <td><button className="btn btn-ghost text-xs py-1" onClick={() => setAdjust(r)}>Adjust</button></td>
               </tr>
             ))}
-            {!rows.length && <tr><td colSpan={6} className="text-center text-slate-400 py-10">No stock rows</td></tr>}
+            {!rows.length && <tr><td colSpan={7} className="text-center text-slate-400 py-10">No stock rows</td></tr>}
           </tbody>
         </table></div>
       </div>

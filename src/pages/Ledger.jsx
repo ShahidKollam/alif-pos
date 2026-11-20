@@ -60,10 +60,11 @@ export default function Ledger({ showToast }) {
       )}
       <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap"><table className="pos-table">
-          <thead><tr><th>Date</th><th>Type</th><th>Notes</th><th className="text-right">Amount</th><th className="text-right">Balance</th></tr></thead>
+          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Date</th><th>Type</th><th>Notes</th><th className="text-right">Amount</th><th className="text-right">Balance</th></tr></thead>
           <tbody>
-            {entries.map((e) => (
+            {entries.map((e, idx) => (
               <tr key={e.id}>
+                <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
                 <td className="text-xs text-slate-500">{e.entryDate}</td>
                 <td><span className="badge badge-slate">{e.entryType}</span></td>
                 <td className="text-slate-600">{e.notes || '—'}</td>
@@ -71,7 +72,7 @@ export default function Ledger({ showToast }) {
                 <td className="text-right">{formatINR(e.balanceAfter)}</td>
               </tr>
             ))}
-            {!entries.length && <tr><td colSpan={5} className="text-center text-slate-400 py-10">{customerId ? 'No ledger entries' : 'Select a customer'}</td></tr>}
+            {!entries.length && <tr><td colSpan={6} className="text-center text-slate-400 py-10">{customerId ? 'No ledger entries' : 'Select a customer'}</td></tr>}
           </tbody>
         </table></div>
       </div>
