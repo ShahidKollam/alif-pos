@@ -295,6 +295,16 @@ export function getInvoice(id) {
   return { ...mapInvoice(row), items };
 }
 
+export function getInvoiceByNumber(invoiceNumber) {
+  const db = getDb();
+  const num = String(invoiceNumber || '').trim();
+  if (!num) return null;
+  const row = db.prepare('SELECT * FROM invoices WHERE invoice_number = ? COLLATE NOCASE').get(num)
+    || db.prepare('SELECT * FROM invoices WHERE invoice_number LIKE ? ORDER BY created_at DESC LIMIT 1').get(`%${num}%`);
+  if (!row) return null;
+  return getInvoice(row.id);
+}
+
 export function listInvoices(filters = {}) {
   const db = getDb();
   let sql = 'SELECT * FROM invoices WHERE 1=1';
