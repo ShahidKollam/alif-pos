@@ -20,10 +20,91 @@ function mapInvoice(row) {
   };
 }
 
-export function getNextInvoiceNumber(mode) {
-  const seq = getDb().prepare('SELECT last_number FROM invoice_sequences WHERE mode = ?').get(mode);
-  const next = (seq?.last_number || 0) + 1;
-  return `${mode === 'wholesale' ? 'W' : 'R'}-${String(next).padStart(6, '0')}`;
+/** YY-MM from bill date (local) */
+export function periodFromDate(invoiceDate) {
+  let d;
+  if (invoiceDate) {
+    const s = String(invoiceDate).replace(' ', 'T');
+    d = new Date(s);
+    if (Number.isNaN(d.getTime())) d = new Date();
+  } else {
+    d = new Date();
+  }
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return { yy, mm, period: `${yy}-${mm}` };
+}
+
+/** AA → AB … ZZ → AAA → AAB … */
+export function incrementSeries(series) {
+  const arr = String(series || 'AA').split('').map((c) => c.charCodeAt(0) - 65);
+  let i = arr.length - 1;
+  while (i >= 0) {
+    arr[i] += 1;
+    if (arr[i] < 26) break;
+    arr[i] = 0;
+    i -= 1;
+  }
+  if (i < 0) return 'A'.repeat(arr.length + 1);
+  return arr.map((n) => String.fromCharCode(65 + n)).join('');
+}
+
+function formatInvoiceNumber(mode, yy, mm, series, num) {
+  const prefix = mode === 'retail' ? 'R' : 'W';
+  return `${prefix}-${yy}-${mm}-${series}-${String(num).padStart(3, '0')}`;
+}
+
+/** Peek next number without consuming (for UI). */
+export function getNextInvoiceNumber(mode, invoiceDate) {
+  const m = mode === 'retail' ? 'retail' : 'wholesale';
+  const { yy, mm, period } = periodFromDate(invoiceDate);
+  const db = getDb();
+  const row = db
+    .prepare('SELECT series, last_number FROM invoice_period_sequences WHERE mode = ? AND period = ?')
+    .get(m, period);
+  if (!row) {
+    return formatInvoiceNumber(m, yy, mm, 'AA', 1);
+  }
+  if (row.last_number < 999) {
+    return formatInvoiceNumber(m, yy, mm, row.series, row.last_number + 1);
+  }
+  const nextSer = incrementSeries(row.series);
+  return formatInvoiceNumber(m, yy, mm, nextSer, 1);
+}
+
+/** Allocate next number atomically inside an open transaction. */
+function allocateInvoiceNumber(db, mode, invoiceDate) {
+  const m = mode === 'retail' ? 'retail' : 'wholesale';
+  const { yy, mm, period } = periodFromDate(invoiceDate);
+  let row = db
+    .prepare('SELECT series, last_number FROM invoice_period_sequences WHERE mode = ? AND period = ?')
+    .get(m, period);
+  let series;
+  let num;
+  if (!row) {
+    series = 'AA';
+    num = 1;
+    db.prepare(
+      'INSERT INTO invoice_period_sequences (mode, period, series, last_number) VALUES (?,?,?,?)'
+    ).run(m, period, series, num);
+  } else if (row.last_number < 999) {
+    series = row.series;
+    num = row.last_number + 1;
+    db.prepare(
+      'UPDATE invoice_period_sequences SET last_number = ? WHERE mode = ? AND period = ?'
+    ).run(num, m, period);
+  } else {
+    series = incrementSeries(row.series);
+    num = 1;
+    db.prepare(
+      'UPDATE invoice_period_sequences SET series = ?, last_number = ? WHERE mode = ? AND period = ?'
+    ).run(series, num, m, period);
+  }
+  const invoiceNumber = formatInvoiceNumber(m, yy, mm, series, num);
+  if (db.prepare('SELECT id FROM invoices WHERE invoice_number = ?').get(invoiceNumber)) {
+    throw new Error('Invoice number conflict. Please try again.');
+  }
+  return invoiceNumber;
 }
 
 export function saveInvoice(data) {
@@ -39,14 +120,12 @@ export function saveInvoice(data) {
     const product = db.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1').get(item.productId);
     if (!product) throw new Error(`Product not found or inactive: ${item.productName || item.productId}`);
     if (item.quantity <= 0) throw new Error(`Invalid quantity for ${product.name}`);
-    // Per-line W/R (default wholesale). Stock may go negative.
     const lineMode = item.priceMode === 'retail' ? 'retail' : 'wholesale';
     if (lineMode === 'retail') retailCount += 1;
     else wholesaleCount += 1;
     let unitPricePaise = lineMode === 'wholesale'
       ? product.wholesale_price_paise
       : product.retail_price_paise;
-    // Optional cashier rate override (₹)
     if (item.unitPrice != null && item.unitPrice !== '' && !Number.isNaN(Number(item.unitPrice))) {
       unitPricePaise = Math.round(Number(item.unitPrice) * 100);
     }
@@ -63,7 +142,6 @@ export function saveInvoice(data) {
       priceMode: lineMode
     });
   }
-  // Invoice number series: all-retail → R, otherwise W
   if (!data.billingMode || data.billingMode === 'auto') {
     data.billingMode = retailCount > 0 && wholesaleCount === 0 ? 'retail' : 'wholesale';
   }
@@ -75,17 +153,66 @@ export function saveInvoice(data) {
   if (amountReceivedPaise < 0) throw new Error('Amount received cannot be negative');
   const balanceDuePaise = Math.max(0, totalPaise - amountReceivedPaise);
   const excessPaise = Math.max(0, amountReceivedPaise - totalPaise);
-  // treatExcessAsAdvance: boolean from UI
   const asAdvance = !!data.treatExcessAsAdvance;
+  const invoiceDate = data.invoiceDate || new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const existingId = data.invoiceId ? Number(data.invoiceId) : null;
 
   return db.transaction(() => {
-    const seq = db.prepare('SELECT last_number FROM invoice_sequences WHERE mode = ?').get(data.billingMode);
-    const nextNum = (seq?.last_number || 0) + 1;
-    const prefix = data.billingMode === 'wholesale' ? 'W' : 'R';
-    const invoiceNumber = `${prefix}-${String(nextNum).padStart(6, '0')}`;
-    if (db.prepare('SELECT id FROM invoices WHERE invoice_number = ?').get(invoiceNumber)) {
-      throw new Error('Invoice number conflict. Please try again.');
+    const insertItem = db.prepare(`
+      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise)
+      VALUES (?,?,?,?,?,?,?,?)
+    `);
+    const updateStock = db.prepare(`UPDATE products SET current_stock = current_stock - ?, updated_at = datetime('now') WHERE id = ?`);
+    const insertMovement = db.prepare(`
+      INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes)
+      VALUES (?,?,?,?,?,?)
+    `);
+
+    if (existingId) {
+      const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(existingId);
+      if (!existing) throw new Error('Invoice not found');
+      const invoiceNumber = existing.invoice_number;
+      const oldItems = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(existingId);
+      for (const oi of oldItems) {
+        db.prepare(`UPDATE products SET current_stock = current_stock + ?, updated_at = datetime('now') WHERE id = ?`).run(oi.quantity, oi.product_id);
+        insertMovement.run(oi.product_id, 'adjustment', oi.quantity, 'invoice', existingId, `Reverse before update ${invoiceNumber}`);
+      }
+      db.prepare('DELETE FROM invoice_items WHERE invoice_id = ?').run(existingId);
+      db.prepare(`DELETE FROM stock_movements WHERE reference_type = 'invoice' AND reference_id = ? AND movement_type = 'sale'`).run(existingId);
+
+      db.prepare(`
+        UPDATE invoices SET
+          invoice_date = ?, customer_id = ?, customer_name = ?,
+          subtotal_paise = ?, discount_paise = ?, total_paise = ?,
+          amount_received_paise = ?, balance_due_paise = ?, notes = ?,
+          billing_mode = ?
+        WHERE id = ?
+      `).run(
+        invoiceDate,
+        data.customerId || null,
+        data.customerName?.trim() || null,
+        subtotalPaise, discountPaise, totalPaise, amountReceivedPaise, balanceDuePaise,
+        data.notes || null,
+        data.billingMode,
+        existingId
+      );
+
+      for (const item of validatedItems) {
+        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise);
+        updateStock.run(item.quantity, item.productId);
+        insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', existingId, `Sale ${invoiceNumber}`);
+      }
+
+      return {
+        id: existingId,
+        invoiceNumber,
+        total: fromPaise(totalPaise),
+        balanceDue: fromPaise(balanceDuePaise),
+        updated: true
+      };
     }
+
+    const invoiceNumber = allocateInvoiceNumber(db, data.billingMode, invoiceDate);
 
     const invResult = db.prepare(`
       INSERT INTO invoices (
@@ -94,7 +221,7 @@ export function saveInvoice(data) {
       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       invoiceNumber,
-      data.invoiceDate || new Date().toISOString().slice(0, 19).replace('T', ' '),
+      invoiceDate,
       data.billingMode,
       data.customerId || null,
       data.customerName?.trim() || null,
@@ -104,59 +231,38 @@ export function saveInvoice(data) {
     );
     const invoiceId = invResult.lastInsertRowid;
 
-    const insertItem = db.prepare(`
-      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise)
-      VALUES (?,?,?,?,?,?,?,?)
-    `);
-    const updateStock = db.prepare(`UPDATE products SET current_stock = current_stock - ?, updated_at = datetime('now') WHERE id = ?`);
-    const insertMovement = db.prepare(`
-      INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes)
-      VALUES (?,'sale',?,'invoice',?,?)
-    `);
-
     for (const item of validatedItems) {
       insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise);
       updateStock.run(item.quantity, item.productId);
-      insertMovement.run(item.productId, -item.quantity, invoiceId, `Sale ${invoiceNumber}`);
+      insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', invoiceId, `Sale ${invoiceNumber}`);
     }
 
-    db.prepare('UPDATE invoice_sequences SET last_number = ? WHERE mode = ?').run(nextNum, data.billingMode);
-
-    // Customer outstanding / advance
     if (data.customerId) {
       const cust = db.prepare('SELECT * FROM customers WHERE id = ?').get(data.customerId);
       if (cust) {
         let outstanding = cust.outstanding_paise || 0;
         let advance = cust.advance_paise || 0;
-
-        // Sale increases outstanding by total
         outstanding += totalPaise;
         db.prepare(`
           INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
           VALUES (?, 'sale', ?, ?, 'invoice', ?, ?)
         `).run(data.customerId, totalPaise, outstanding, invoiceId, `Invoice ${invoiceNumber}`);
-
-        // Payment reduces outstanding
         if (amountReceivedPaise > 0) {
           let payAgainst = Math.min(amountReceivedPaise, outstanding);
           let excess = amountReceivedPaise - payAgainst;
           outstanding -= payAgainst;
-          if (excess > 0 && asAdvance) {
-            advance += excess;
-          }
-          // if excess and not advance, it is change — not stored on customer
-
-          db.prepare(`
-            INSERT INTO payments (customer_id, invoice_id, amount_paise, payment_type, notes)
-            VALUES (?, ?, ?, 'receipt', ?)
-          `).run(data.customerId, invoiceId, amountReceivedPaise, `Payment for ${invoiceNumber}`);
-
+          if (excess > 0 && asAdvance) advance += excess;
+          try {
+            db.prepare(`
+              INSERT INTO payments (customer_id, invoice_id, amount_paise, payment_type, notes)
+              VALUES (?, ?, ?, 'receipt', ?)
+            `).run(data.customerId, invoiceId, amountReceivedPaise, `Payment for ${invoiceNumber}`);
+          } catch (_) {}
           db.prepare(`
             INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
             VALUES (?, 'payment', ?, ?, 'invoice', ?, ?)
           `).run(data.customerId, -amountReceivedPaise, outstanding, invoiceId, `Payment ${invoiceNumber}`);
         }
-
         db.prepare(`UPDATE customers SET outstanding_paise=?, advance_paise=?, updated_at=datetime('now') WHERE id=?`)
           .run(outstanding, advance, data.customerId);
       }
@@ -167,8 +273,7 @@ export function saveInvoice(data) {
       invoiceNumber,
       total: fromPaise(totalPaise),
       balanceDue: fromPaise(balanceDuePaise),
-      excess: fromPaise(excessPaise),
-      amountReceived: fromPaise(amountReceivedPaise)
+      updated: false
     };
   })();
 }
