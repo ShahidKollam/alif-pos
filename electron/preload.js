@@ -1,2 +1,1 @@
-// Prefer preload.cjs — this file is a thin ESM placeholder.
-export {};
+/* Deprecated: use preload.cjs. Kept only for reference. */

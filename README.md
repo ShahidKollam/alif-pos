@@ -1,32 +1,37 @@
-# Alif POS
+# Alif POS v2.0.1
 
-Professional wholesale & retail desktop billing application.
+Professional Windows desktop POS for **wholesale and retail** billing.
 
-## Stack
+## Modules
 
-- Electron + React + Tailwind CSS
-- SQLite (sql.js) — local, offline-first
-- Vite
+| Screen | Purpose |
+|--------|---------|
+| Billing | Multi-tab W/R billing, customer due, save + stock |
+| Products | Master with wholesale/retail prices |
+| Stock | Levels, low stock, adjustments |
+| Customers | Master + outstanding / advance |
+| Ledger | History + collect payment |
+| Sales History | Search and view invoices |
+| Reports | Sales and outstanding snapshot |
+| Settings | Backup / restore, paths, demo data |
 
-## Features
-
-- Multi-tab Billing (wholesale / retail)
-- Products, Stock, Customers
-- Customer Ledger
-- Sales History & Reports
-- Settings + Backup / Restore
-
-## Setup
+## Quick start
 
 ```bash
 npm install
 npm run electron:dev
 ```
 
-See `docs/SETUP.md` for full instructions.
+Installer: `npm run electron:build` → `Alif_POS_v2.0.1.0_Setup.exe`
 
-## Version
+## Documentation
 
-Current: **v2.2.6**
+- [Setup](docs/SETUP.md)
+- [Backup & data safety](docs/BACKUP_AND_DATA.md)
+- [User guide](docs/USER_GUIDE.md)
+- [**Operations manual**](docs/OPERATIONS_MANUAL.md) (complete daily workflow)
+- [Version history](VERSION_HISTORY.md)
 
-See `VERSION_HISTORY.md` for changelog.
+## Stack
+
+React · Tailwind · Electron · sql.js (SQLite WASM) · Secure IPC

@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
-import Toast from './components/Toast';
-import HelpModal from './components/HelpModal';
 import Billing from './pages/Billing';
 import Products from './pages/Products';
 import Stock from './pages/Stock';
@@ -11,58 +9,132 @@ import Ledger from './pages/Ledger';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
-
-const PAGES = {
-  billing: Billing,
-  products: Products,
-  stock: Stock,
-  customers: Customers,
-  ledger: Ledger,
-  sales: Sales,
-  reports: Reports,
-  settings: Settings,
-};
+import HelpModal from './components/HelpModal';
+import Toast from './components/Toast';
+import { api } from './utils/api';
 
 export default function App() {
   const [page, setPage] = useState('billing');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [toast, setToast] = useState(null);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const showToast = useCallback((message, type = 'info') => {
     setToast({ message, type, id: Date.now() });
   }, []);
 
   useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'F1') {
-        e.preventDefault();
-        setHelpOpen(true);
+    (async () => {
+      try {
+        if (!api.isElectron) {
+          showToast('Open with npm run electron:dev — browser-only mode cannot save data', 'error');
+        } else {
+          // Always ensure sample products exist for first run / empty DB
+          const products = await api.products.list({ activeOnly: false });
+          if (!products || products.length === 0) {
+            const res = await api.demo.load();
+            showToast(res.alreadyLoaded ? 'Database ready' : `Demo data loaded (${res.count} products)`, 'success');
+          }
+        }
+      } catch (e) {
+        console.warn(e);
+        showToast(e.message || 'Startup warning', 'error');
+      } finally {
+        setReady(true);
       }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    })();
+  }, [showToast]);
+
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
 
-  const Page = PAGES[page] || Billing;
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      showToast('Fullscreen not available', 'error');
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = e.target.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
+      if (e.key === 'F1') { e.preventDefault(); setShowHelp(true); return; }
+      if (e.key === 'F2') { e.preventDefault(); setPage('products'); window.dispatchEvent(new CustomEvent('alif:open-add-product')); return; }
+      if (e.key === 'F8') { e.preventDefault(); setPage('billing'); window.dispatchEvent(new CustomEvent('alif:new-bill')); return; }
+      if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:save-bill'));
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [toggleFullscreen, page]);
+
+  if (!ready) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#0b1220] text-white">
+        <div className="text-center">
+          <div className="text-2xl font-semibold mb-1">Alif POS</div>
+          <div className="text-slate-400 text-sm">Starting…</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-screen bg-slate-100 text-slate-900 overflow-hidden">
-      <Sidebar page={page} setPage={setPage} onHelp={() => setHelpOpen(true)} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <main className="flex-1 overflow-auto">
-          <Page showToast={showToast} />
-        </main>
-      </div>
-      {toast && (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+    <div className="h-full flex bg-slate-100">
+      <Sidebar
+        current={page}
+        onNavigate={setPage}
+        collapsed={sidebarCollapsed && !sidebarPinned}
+        onToggle={() => {
+          setSidebarPinned((p) => {
+            const next = !p;
+            setSidebarCollapsed(!next);
+            return next;
+          });
+        }}
+        onHoverExpand={() => {
+          if (!sidebarPinned) setSidebarCollapsed(false);
+        }}
+        onHoverCollapse={() => {
+          if (!sidebarPinned) setSidebarCollapsed(true);
+        }}
+      />
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {page === 'billing' && <Billing showToast={showToast} />}
+        {page === 'products' && <Products showToast={showToast} />}
+        {page === 'stock' && <Stock showToast={showToast} />}
+        {page === 'customers' && <Customers showToast={showToast} />}
+        {page === 'ledger' && <Ledger showToast={showToast} />}
+        {page === 'sales' && <Sales showToast={showToast} />}
+        {page === 'reports' && <Reports />}
+        {page === 'settings' && <Settings showToast={showToast} />}
+      </main>
+      <button
+        type="button"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? 'Exit full screen (F11)' : 'Full screen (F11)'}
+        className="fixed bottom-3 right-3 z-50 w-10 h-10 rounded-xl bg-[#0b1220] text-white shadow-lg border border-white/20 flex items-center justify-center hover:bg-[#162032] opacity-100"
+      >
+        {isFullscreen ? <Minimize2 size={18} className="text-white" /> : <Maximize2 size={18} className="text-white" />}
+      </button>
+      {showHelp && <HelpModal page={page} onClose={() => setShowHelp(false)} />}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

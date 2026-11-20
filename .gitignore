@@ -1,11 +1,12 @@
 node_modules/
 dist/
+dist-installer/
 *.log
 .DS_Store
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 .env
 .env.local
-*.db
-*.db-*
-backups/
-.vscode/
-.idea/
+*.local

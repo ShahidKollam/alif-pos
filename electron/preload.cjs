@@ -1,45 +1,50 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
-
 contextBridge.exposeInMainWorld('alif', {
   products: {
-    list: (opts) => invoke('products:list', opts),
-    get: (id) => invoke('products:get', id),
-    create: (data) => invoke('products:create', data),
-    update: (id, data) => invoke('products:update', id, data),
-    remove: (id) => invoke('products:remove', id),
-    search: (q) => invoke('products:search', q),
-  },
-  stock: {
-    list: () => invoke('stock:list'),
-    adjust: (data) => invoke('stock:adjust', data),
-    history: (opts) => invoke('stock:history', opts),
-  },
-  customers: {
-    list: (opts) => invoke('customers:list', opts),
-    get: (id) => invoke('customers:get', id),
-    create: (data) => invoke('customers:create', data),
-    update: (id, data) => invoke('customers:update', id, data),
-    remove: (id) => invoke('customers:remove', id),
-    ledger: (id, opts) => invoke('customers:ledger', id, opts),
-    addPayment: (data) => invoke('customers:addPayment', data),
+    list: (f) => ipcRenderer.invoke('products:list', f),
+    get: (id) => ipcRenderer.invoke('products:get', id),
+    create: (d) => ipcRenderer.invoke('products:create', d),
+    update: (id, d) => ipcRenderer.invoke('products:update', id, d),
+    setActive: (id, a) => ipcRenderer.invoke('products:setActive', id, a),
+    search: (q) => ipcRenderer.invoke('products:search', q),
+    categories: () => ipcRenderer.invoke('products:categories')
   },
   invoices: {
-    create: (data) => invoke('invoices:create', data),
-    list: (opts) => invoke('invoices:list', opts),
-    get: (id) => invoke('invoices:get', id),
-    void: (id, reason) => invoke('invoices:void', id, reason),
+    nextNumber: (m) => ipcRenderer.invoke('invoices:nextNumber', m),
+    save: (d) => ipcRenderer.invoke('invoices:save', d),
+    get: (id) => ipcRenderer.invoke('invoices:get', id),
+    list: (f) => ipcRenderer.invoke('invoices:list', f)
+  },
+  customers: {
+    list: (f) => ipcRenderer.invoke('customers:list', f),
+    get: (id) => ipcRenderer.invoke('customers:get', id),
+    create: (d) => ipcRenderer.invoke('customers:create', d),
+    update: (id, d) => ipcRenderer.invoke('customers:update', id, d),
+    setActive: (id, a) => ipcRenderer.invoke('customers:setActive', id, a),
+    ledger: (id, limit) => ipcRenderer.invoke('customers:ledger', id, limit),
+    collectPayment: (d) => ipcRenderer.invoke('customers:collectPayment', d)
+  },
+  stock: {
+    list: (f) => ipcRenderer.invoke('stock:list', f),
+    adjust: (d) => ipcRenderer.invoke('stock:adjust', d),
+    movements: (id, limit) => ipcRenderer.invoke('stock:movements', id, limit)
   },
   settings: {
-    get: () => invoke('settings:get'),
-    set: (data) => invoke('settings:set', data),
-    backup: () => invoke('settings:backup'),
-    restore: (path) => invoke('settings:restore', path),
-    loadDemo: () => invoke('settings:loadDemo'),
+    get: (k) => ipcRenderer.invoke('settings:get', k),
+    set: (k, v) => ipcRenderer.invoke('settings:set', k, v)
+  },
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    list: () => ipcRenderer.invoke('backup:list'),
+    restore: (p) => ipcRenderer.invoke('backup:restore', p),
+    paths: () => ipcRenderer.invoke('backup:paths')
+  },
+  demo: {
+    load: () => ipcRenderer.invoke('demo:load'),
+    reset: () => ipcRenderer.invoke('demo:reset')
   },
   app: {
-    getVersion: () => invoke('app:getVersion'),
-    getPath: (name) => invoke('app:getPath', name),
-  },
+    info: () => ipcRenderer.invoke('app:info')
+  }
 });
