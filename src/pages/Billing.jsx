@@ -6,22 +6,24 @@ import { loadBillingSession, saveBillingSession } from '../utils/billingPersist'
 
 let tabSeq = 1;
 let rowSeq = 1;
+let lastSavedInvoiceId = null;
+let lastSavedInvoiceNumber = null;
 
 function emptyRow() {
-  return { rowKey: `r${rowSeq++}`, productId: null, productName: '', category: 'General', stock: null, wholesalePrice: 0, retailPrice: 0, quantity: '', rateOverride: '', verified: false };
+  return { rowKey: `r${rowSeq++}`, productId: null, productName: '', category: null, stock: null, wholesalePrice: 0, retailPrice: 0, quantity: '', rateOverride: '', verified: false };
 }
 
 function newTab() {
   return {
     id: `t${tabSeq++}`, invoiceNo: '', savedInvoiceId: null, customerId: null, customerName: '', customerQuery: '', customerPhone: '',
-    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, notes: ''
+    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
   };
 }
 
 function migrateItems(items) {
   if (!Array.isArray(items) || !items.length) return [emptyRow()];
   return items.map((it) => ({
-    rowKey: it.rowKey || `r${rowSeq++}`, productId: it.productId ?? null, productName: it.productName || '', category: it.category || 'General',
+    rowKey: it.rowKey || `r${rowSeq++}`, productId: it.productId ?? null, productName: it.productName || '', category: (it.category && String(it.category).trim()) || null,
     stock: it.stock ?? null, wholesalePrice: it.wholesalePrice ?? 0, retailPrice: it.retailPrice ?? 0,
     quantity: it.quantity === 0 || it.quantity ? it.quantity : '', rateOverride: it.rateOverride != null && it.rateOverride !== '' ? it.rateOverride : '', verified: !!it.verified
   }));
@@ -36,6 +38,7 @@ function initFromStorage() {
       const base = { ...newTab(), ...t };
       base.billMode = t.billMode === 'retail' ? 'retail' : 'wholesale';
       base.items = migrateItems(t.items);
+      if (!base.payMethod) base.payMethod = 'cash';
       const last = base.items[base.items.length - 1];
       if (last?.productId) base.items = [...base.items, emptyRow()];
       return base;
@@ -110,21 +113,28 @@ export default function Billing({ showToast }) {
     const onNew = () => addTab();
     const onSave = () => saveBill();
     const onAddCust = () => openAddCustomer();
+    const onLast = () => openLastSavedBill();
     window.addEventListener('alif:new-bill', onNew);
     window.addEventListener('alif:save-bill', onSave);
     window.addEventListener('alif:open-add-customer', onAddCust);
+    window.addEventListener('alif:open-last-bill', onLast);
     const key = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') { e.preventDefault(); addTab(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); window.dispatchEvent(new CustomEvent('alif:save-bill')); }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        closeTab(activeId);
+      }
     };
     window.addEventListener('keydown', key);
     return () => {
       window.removeEventListener('alif:new-bill', onNew);
       window.removeEventListener('alif:save-bill', onSave);
       window.removeEventListener('alif:open-add-customer', onAddCust);
+      window.removeEventListener('alif:open-last-bill', onLast);
       window.removeEventListener('keydown', key);
     };
-  }, [tab?.id, tab?.items, saving]);
+  }, [tab?.id, tab?.items, saving, activeId, tabs.length]);
 
   useEffect(() => {
     if (!showSug) return;
@@ -153,8 +163,13 @@ export default function Billing({ showToast }) {
   function closeTab(id, e) {
     e?.stopPropagation();
     setTabs((prev) => {
-      if (prev.length === 1) return prev;
       const next = prev.filter((x) => x.id !== id);
+      if (next.length === 0) {
+        const t = newTab();
+        setActiveId(t.id);
+        loadInvoiceNo(t.id, t.billMode);
+        return [t];
+      }
       if (activeId === id) setActiveId(next[next.length - 1].id);
       return next;
     });
@@ -163,10 +178,116 @@ export default function Billing({ showToast }) {
   function selectCustomer(c) {
     if (!c) {
       updateTab(tab.id, { customerId: null, customerName: '', customerQuery: '', customerPhone: '', customerOutstanding: 0, customerAdvance: 0 });
+      setTimeout(() => wrRef.current?.focus(), 40);
       return;
     }
     updateTab(tab.id, { customerId: c.id, customerName: c.name, customerQuery: c.name, customerPhone: c.phone || '', customerOutstanding: c.outstanding || 0, customerAdvance: c.advance || 0 });
     setTimeout(() => wrRef.current?.focus(), 40);
+  }
+
+  async function loadInvoiceIntoTab(inv, preferTabId) {
+    if (!inv || !inv.id) { showToast('Bill not found', 'error'); return; }
+    const existing = tabs.find((x) => x.savedInvoiceId === inv.id);
+    if (existing) { setActiveId(existing.id); showToast(`Opened ${inv.invoiceNumber}`, 'success'); return; }
+    const items = (inv.items || []).map((it) => ({
+      rowKey: `r${rowSeq++}`, productId: it.productId, productName: it.productName || '', category: (it.category && String(it.category).trim()) || null, stock: null,
+      wholesalePrice: it.wholesalePrice || 0, retailPrice: it.retailPrice || 0, quantity: it.quantity,
+      rateOverride: it.unitPrice != null ? String(it.unitPrice) : '', verified: false
+    }));
+    items.push(emptyRow());
+    let phone = '';
+    let outstanding = 0;
+    let advance = 0;
+    if (inv.customerId) {
+      const fromList = customers.find((c) => Number(c.id) === Number(inv.customerId));
+      if (fromList) {
+        phone = fromList.phone || '';
+        outstanding = fromList.outstanding || 0;
+        advance = fromList.advance || 0;
+      } else {
+        try {
+          const c = await api.customers.get(inv.customerId);
+          if (c) {
+            phone = c.phone || '';
+            outstanding = c.outstanding || 0;
+            advance = c.advance || 0;
+          }
+        } catch (_) {}
+      }
+    }
+    const patch = {
+      savedInvoiceId: inv.id, invoiceNo: inv.invoiceNumber, billMode: inv.billingMode === 'retail' ? 'retail' : 'wholesale',
+      customerId: inv.customerId || null, customerName: inv.customerName || '', customerQuery: inv.customerName || '',
+      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: advance, discount: inv.discount || 0,
+      amountReceived: inv.amountReceived != null ? String(inv.amountReceived) : '', amountEdited: true, notes: inv.notes || '', items,
+      payMethod: 'cash', cashAmount: '', upiAmount: ''
+    };
+    if (preferTabId) { updateTab(preferTabId, patch); setActiveId(preferTabId); }
+    else {
+      const nt = { ...newTab(), ...patch, id: `t${tabSeq++}` };
+      setTabs((prev) => [...prev, nt]);
+      setActiveId(nt.id);
+    }
+    showToast(`Loaded ${inv.invoiceNumber}`, 'success');
+  }
+
+  async function resolveInvoiceByNumber(q) {
+    try {
+      if (api.invoices.getByNumber) {
+        const inv = await api.invoices.getByNumber(q);
+        if (inv) return inv;
+      }
+    } catch (e) {
+      console.warn('getByNumber failed, falling back to list', e?.message || e);
+    }
+    const list = await api.invoices.list({ search: q });
+    if (!list?.length) return null;
+    const lower = q.toLowerCase();
+    const exact = list.find((i) => String(i.invoiceNumber || '').toLowerCase() === lower)
+      || list.find((i) => String(i.invoiceNumber || '').toLowerCase().includes(lower))
+      || list[0];
+    if (!exact?.id) return null;
+    return api.invoices.get(exact.id);
+  }
+
+  async function searchBillByNumber(raw) {
+    const q = String(raw || '').trim();
+    if (!q) return;
+    try {
+      const inv = await resolveInvoiceByNumber(q);
+      if (!inv) { showToast('No bill found for that number', 'error'); return; }
+      const existing = tabs.find((x) => x.savedInvoiceId === inv.id);
+      if (existing) {
+        setActiveId(existing.id);
+        showToast(`Opened ${inv.invoiceNumber}`, 'success');
+        return;
+      }
+      const hasLineItems = (tab.items || []).some((i) => i.productId);
+      const isSavedThis = tab.savedInvoiceId && Number(tab.savedInvoiceId) === Number(inv.id);
+      if (hasLineItems && !isSavedThis) {
+        await loadInvoiceIntoTab(inv, null);
+      } else {
+        await loadInvoiceIntoTab(inv, tab.id);
+      }
+    } catch (e) {
+      showToast(e.message || 'Could not load bill', 'error');
+    }
+  }
+
+  async function openLastSavedBill() {
+    let id = lastSavedInvoiceId;
+    try { if (!id) id = Number(sessionStorage.getItem('alif_last_bill_id')) || null; } catch (_) {}
+    if (!id) {
+      try { const list = await api.invoices.list({}); if (list?.length) id = list[0].id; } catch (_) {}
+    }
+    if (!id) { showToast('No previous bill to open', 'error'); return; }
+    const existing = tabs.find((x) => x.savedInvoiceId === id);
+    if (existing) { setActiveId(existing.id); showToast('Switched to last bill', 'success'); return; }
+    try {
+      const inv = await api.invoices.get(id);
+      if (!inv) { showToast('Last bill not found', 'error'); return; }
+      await loadInvoiceIntoTab(inv, null);
+    } catch (e) { showToast(e.message || 'Could not open last bill', 'error'); }
   }
 
   function openAddCustomer(prefillName) {
@@ -205,7 +326,7 @@ export default function Billing({ showToast }) {
       return;
     }
     const items = tab.items.map((r) => r.rowKey === rowKey ? {
-      ...r, productId: product.id, productName: product.name, category: product.category || 'General',
+      ...r, productId: product.id, productName: product.name, category: (product.category && String(product.category).trim()) || null,
       stock: product.currentStock, wholesalePrice: product.wholesalePrice, retailPrice: product.retailPrice,
       quantity: r.quantity === '' || r.quantity == null ? 1 : r.quantity, rateOverride: '', verified: r.verified
     } : r);
@@ -248,17 +369,34 @@ export default function Billing({ showToast }) {
     if (saving) return;
     setSaving(true);
     try {
+      let notesOut = tab.notes || '';
+      const pm = tab.payMethod || 'cash';
+      if (pm === 'both') {
+        const cAmt = Number(tab.cashAmount) || 0;
+        const uAmt = Number(tab.upiAmount) || 0;
+        const payLine = `Payment: Cash ${formatINR(cAmt)} + UPI ${formatINR(uAmt)}`;
+        if (!notesOut.includes('Payment: Cash')) notesOut = notesOut ? `${notesOut}\n${payLine}` : payLine;
+      } else if (pm === 'upi') {
+        const payLine = 'Payment: UPI';
+        if (!notesOut.includes('Payment: UPI') && !notesOut.includes('Payment: Cash')) notesOut = notesOut ? `${notesOut}\n${payLine}` : payLine;
+      } else {
+        const payLine = 'Payment: Cash';
+        if (!notesOut.includes('Payment: Cash') && !notesOut.includes('Payment: UPI')) notesOut = notesOut ? `${notesOut}\n${payLine}` : payLine;
+      }
       const result = await api.invoices.save({
         invoiceId: tab.savedInvoiceId || undefined,
         billingMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
         customerId: tab.customerId, customerName: tab.customerName, discount: discountVal, amountReceived: received,
-        treatExcessAsAdvance: tab.treatExcessAsAdvance, notes: tab.notes,
+        treatExcessAsAdvance: tab.treatExcessAsAdvance, notes: notesOut,
         items: filledItems.map((i) => ({
           productId: i.productId, productName: i.productName, quantity: Number(i.quantity) || 0,
           priceMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
           unitPrice: i.rateOverride !== '' && i.rateOverride != null ? Number(i.rateOverride) : undefined
         }))
       });
+      lastSavedInvoiceId = result.id;
+      lastSavedInvoiceNumber = result.invoiceNumber;
+      try { sessionStorage.setItem('alif_last_bill_id', String(result.id)); sessionStorage.setItem('alif_last_bill_no', result.invoiceNumber); } catch (_) {}
       showToast(`${result.updated ? 'Updated' : 'Saved'} ${result.invoiceNumber} · ${formatINR(result.total)}`, 'success');
       updateTab(tab.id, { savedInvoiceId: result.id, invoiceNo: result.invoiceNumber });
       api.customers.list({ activeOnly: true }).then(setCustomers).catch(() => {});
@@ -279,19 +417,56 @@ export default function Billing({ showToast }) {
     lines.push(''); lines.push(`Total: ${formatINR(billTotal)}`);
     if (previousBalance > 0) lines.push(`Previous: ${formatINR(previousBalance)}`);
     lines.push(`*Grand total: ${formatINR(grandTotal)}*`);
+    const pm = tab.payMethod || 'cash';
+    if (pm === 'both') {
+      lines.push(`Paid: Cash ${formatINR(Number(tab.cashAmount) || 0)} + UPI ${formatINR(Number(tab.upiAmount) || 0)}`);
+    } else if (pm === 'upi') {
+      lines.push(`Paid via: UPI ${formatINR(received)}`);
+    } else {
+      lines.push(`Paid via: Cash ${formatINR(received)}`);
+    }
     if (tab.notes) { lines.push(''); lines.push(tab.notes); }
     return lines.join('\n');
+  }
+
+  function normalizeWhatsAppPhone(raw) {
+    let d = String(raw || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length === 10) d = '91' + d;
+    if (d.length === 11 && d.startsWith('0')) d = '91' + d.slice(1);
+    return d;
   }
 
   async function shareWhatsApp() {
     if (!filledItems.length) { showToast('Add items before sharing', 'error'); return; }
     if (!tab.savedInvoiceId) { showToast('Save the bill first, then share on WhatsApp', 'error'); return; }
+
+    let phoneRaw = tab.customerPhone || '';
+    if (!phoneRaw && tab.customerId) {
+      const fromList = customers.find((c) => Number(c.id) === Number(tab.customerId));
+      if (fromList?.phone) phoneRaw = fromList.phone;
+      else {
+        try {
+          const c = await api.customers.get(tab.customerId);
+          if (c?.phone) {
+            phoneRaw = c.phone;
+            updateTab(tab.id, { customerPhone: c.phone });
+          }
+        } catch (_) {}
+      }
+    }
+
+    const phone = normalizeWhatsAppPhone(phoneRaw);
     const text = encodeURIComponent(buildWhatsAppText());
-    let phone = (tab.customerPhone || '').replace(/\D/g, '');
-    if (phone.length === 10) phone = '91' + phone;
-    const url = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
-    try { if (api.openExternal) await api.openExternal(url); else window.open(url, '_blank'); }
-    catch { window.open(url, '_blank'); }
+    const url = phone
+      ? `https://wa.me/${phone}?text=${text}`
+      : `https://wa.me/?text=${text}`;
+    try {
+      if (api.openExternal) await api.openExternal(url);
+      else window.open(url, '_blank');
+    } catch {
+      window.open(url, '_blank');
+    }
   }
 
   function placeDropdown(rowKey) {
@@ -353,10 +528,20 @@ export default function Billing({ showToast }) {
   }
 
   if (!tab) return null;
-  const invoiceDate = new Date().toLocaleDateString('en-GB');
+
   const custQ = (tab.customerQuery || '').trim().toLowerCase();
-  const custMatches = customers.filter((c) => { if (!custQ) return true; return (c.name || '').toLowerCase().includes(custQ) || (c.phone || '').toLowerCase().includes(custQ); }).slice(0, 15);
+  const custMatches = customers.filter((c) => {
+    if (!custQ) return true;
+    return (c.name || '').toLowerCase().includes(custQ) || (c.phone || '').toLowerCase().includes(custQ);
+  }).slice(0, 15);
   const showAddCustInList = custQ.length > 0 && !custMatches.some((c) => (c.name || '').toLowerCase() === custQ);
+  const custOptions = (() => {
+    const opts = [{ kind: 'walkin' }];
+    for (const c of custMatches) opts.push({ kind: 'customer', c });
+    if (showAddCustInList) opts.push({ kind: 'add' });
+    return opts;
+  })();
+  const invoiceDate = new Date().toLocaleDateString('en-GB');
 
   return (
     <div className="flex flex-col h-full bg-[#eef2f7] min-h-0">
@@ -364,7 +549,7 @@ export default function Billing({ showToast }) {
         {tabs.map((t) => (
           <button key={t.id} type="button" className={`tab ${t.id === activeId ? 'active' : ''}`} onClick={() => setActiveId(t.id)}>
             <span className="truncate">{(t.customerName || '').trim() ? t.customerName : (t.invoiceNo || 'New bill')}{(t.items || []).filter((i) => i.productId).length ? ` · ${(t.items || []).filter((i) => i.productId).length}` : ''}</span>
-            {tabs.length > 1 && (<span className="close" onClick={(e) => closeTab(t.id, e)}><X size={12} /></span>)}
+            <span className="close" onClick={(e) => closeTab(t.id, e)} title="Close tab (Ctrl+W)"><X size={12} /></span>
           </button>
         ))}
         <button type="button" className="ml-1 px-2.5 py-1.5 text-slate-500 hover:text-blue-600 self-center rounded-lg hover:bg-white/80" title="New bill (Ctrl+T / F8)" onClick={addTab}><Plus size={16} /></button>
@@ -378,39 +563,59 @@ export default function Billing({ showToast }) {
                 <input type="text" className="field bg-white pr-9" placeholder="Search name or phone…"
                   value={tab.customerQuery != null ? tab.customerQuery : tab.customerName || ''}
                   onChange={(e) => { updateTab(tab.id, { customerQuery: e.target.value, customerId: null, customerName: '', customerPhone: '', customerOutstanding: 0, customerAdvance: 0 }); setShowCust(true); setCustHighlight(0); }}
-                  onFocus={() => setShowCust(true)} onBlur={() => setTimeout(() => setShowCust(false), 180)}
+                  onFocus={() => { setShowCust(true); setCustHighlight(0); }} onBlur={() => setTimeout(() => setShowCust(false), 180)}
                   onKeyDown={(e) => {
+                    if (e.key === 'Tab' && !e.shiftKey) { setShowCust(false); setTimeout(() => wrRef.current?.focus(), 0); return; }
+                    if (!showCust && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { setShowCust(true); e.preventDefault(); return; }
                     if (!showCust) return;
-                    if (e.key === 'ArrowDown') { e.preventDefault(); setCustHighlight((h) => Math.min(h + 1, Math.max(0, custMatches.length - 1))); }
+                    const max = Math.max(0, custOptions.length - 1);
+                    if (e.key === 'ArrowDown') { e.preventDefault(); setCustHighlight((h) => Math.min(h + 1, max)); }
                     else if (e.key === 'ArrowUp') { e.preventDefault(); setCustHighlight((h) => Math.max(h - 1, 0)); }
-                    else if (e.key === 'Enter') { e.preventDefault(); if (custMatches[custHighlight]) { selectCustomer(custMatches[custHighlight]); setShowCust(false); } else if (showAddCustInList) openAddCustomer(tab.customerQuery); }
-                    else if (e.key === 'Escape') setShowCust(false);
+                    else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const opt = custOptions[custHighlight] || custOptions[0];
+                      if (!opt) return;
+                      if (opt.kind === 'walkin') { selectCustomer(null); setShowCust(false); }
+                      else if (opt.kind === 'customer') { selectCustomer(opt.c); setShowCust(false); }
+                      else if (opt.kind === 'add') { openAddCustomer(tab.customerQuery); }
+                    } else if (e.key === 'Escape') setShowCust(false);
                   }} />
                 <button type="button" title="Add customer" className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50" onMouseDown={(e) => { e.preventDefault(); openAddCustomer(); }}><UserPlus size={16} /></button>
                 {showCust && (
                   <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-auto">
-                    <button type="button" className="w-full text-left px-3 py-2 text-sm text-slate-500 hover:bg-slate-50 border-b" onMouseDown={(e) => { e.preventDefault(); selectCustomer(null); setShowCust(false); }}>Walk-in / none</button>
-                    {custMatches.map((c, ci) => (
-                      <button key={c.id} type="button" className={`w-full text-left px-3 py-2 text-sm border-b border-slate-50 last:border-0 ${ci === custHighlight ? 'bg-blue-100' : 'hover:bg-blue-50'}`} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(ci)}>
-                        <div className="font-medium text-black">{c.name}</div>
-                        <div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · due ${formatINR(c.outstanding)}` : ''}</div>
-                      </button>
-                    ))}
-                    {showAddCustInList && (<button type="button" className="w-full text-left px-3 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-50 flex items-center gap-2 border-t" onMouseDown={(e) => { e.preventDefault(); openAddCustomer(tab.customerQuery); }}><Plus size={14} /> Add this customer “{(tab.customerQuery || '').trim()}”</button>)}
-                    <button type="button" className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 flex items-center gap-2 border-t" onMouseDown={(e) => { e.preventDefault(); openAddCustomer(); }}><UserPlus size={14} /> Add new customer…</button>
+                    {custOptions.map((opt, oi) => {
+                      const active = oi === custHighlight;
+                      const base = `w-full text-left px-3 py-2 text-sm border-b border-slate-50 last:border-0 ${active ? 'bg-blue-100 ring-1 ring-inset ring-blue-200' : 'hover:bg-blue-50'}`;
+                      if (opt.kind === 'walkin') return (<button key="walkin" type="button" className={`${base} text-slate-600`} onMouseDown={(e) => { e.preventDefault(); selectCustomer(null); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}>Walk-in / none</button>);
+                      if (opt.kind === 'add') return (<button key="add" type="button" className={`${base} font-semibold text-blue-700`} onMouseDown={(e) => { e.preventDefault(); openAddCustomer(tab.customerQuery); }} onMouseEnter={() => setCustHighlight(oi)}><span className="inline-flex items-center gap-2"><Plus size={14} /> Add this customer “{(tab.customerQuery || '').trim()}”</span></button>);
+                      const c = opt.c;
+                      return (<button key={c.id} type="button" className={base} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}><div className="font-medium text-black">{c.name}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · due ${formatINR(c.outstanding)}` : ''}</div></button>);
+                    })}
                   </div>
                 )}
               </div>
             </div>
             <div className="col-span-4 md:col-span-2">
               <label className="block text-[11px] font-bold text-black mb-0.5">W / R</label>
-              <div ref={wrRef} tabIndex={0} onKeyDown={onWrKey} className="flex rounded-md border border-slate-200 overflow-hidden h-[34px] bg-white focus:ring-2 focus:ring-blue-200 outline-none" title="Press W or R">
+              <div ref={wrRef} tabIndex={0} onKeyDown={(e) => {
+                onWrKey(e);
+                if (e.key === 'Tab' && !e.shiftKey) {
+                  e.preventDefault();
+                  const first = (tab.items || []).find((i) => !i.productId) || tab.items?.[0];
+                  if (first) productInputRefs.current[first.rowKey]?.focus();
+                }
+              }} className="flex rounded-md border border-slate-200 overflow-hidden h-[34px] bg-white focus:ring-2 focus:ring-blue-200 outline-none" title="Press W or R · Tab → products">
                 <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'wholesale' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'wholesale'); }} className={`flex-1 text-xs font-bold ${tab.billMode !== 'retail' ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}>W</button>
                 <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'retail' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'retail'); }} className={`flex-1 text-xs font-bold border-l border-slate-200 ${tab.billMode === 'retail' ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}>R</button>
               </div>
             </div>
             <div className="col-span-4 md:col-span-3"><label className="block text-[11px] font-bold text-black mb-0.5">Bill date</label><input className="field bg-white" value={invoiceDate} readOnly /></div>
-            <div className="col-span-4 md:col-span-3"><label className="block text-[11px] font-bold text-black mb-0.5">Bill no.</label><input className="field bg-slate-50 font-mono font-semibold text-slate-700" value={tab.invoiceNo || '…'} readOnly /></div>
+            <div className="col-span-4 md:col-span-3"><label className="block text-[11px] font-bold text-black mb-0.5">Bill no.</label>
+              <input className="field bg-white font-mono font-semibold text-slate-700" value={tab.invoiceNo || ''} placeholder="Search / new bill no." title="Type an existing bill number and press Enter to open it"
+                onChange={(e) => updateTab(tab.id, { invoiceNo: e.target.value })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const q = (tab.invoiceNo || '').trim(); if (q) searchBillByNumber(q); } }}
+                onBlur={() => { if (!(tab.invoiceNo || '').trim() && !tab.savedInvoiceId) loadInvoiceNo(tab.id, tab.billMode); }} />
+            </div>
           </div>
 
           <div ref={tableWrapRef} className="pos-table-wrap flex-1 min-h-0 overflow-auto mb-2 relative">
@@ -463,7 +668,7 @@ export default function Billing({ showToast }) {
                           </div>
                         )}
                       </td>
-                      <td className="text-xs text-slate-600">{row.productId ? (row.category || 'General') : '—'}</td>
+                      <td className="text-xs text-slate-600">{row.productId ? ((row.category && String(row.category).trim()) || 'General') : '—'}</td>
                       <td className="text-center">
                         <input ref={(el) => { if (el) qtyInputRefs.current[row.rowKey] = el; }} type="number" min="0" step="1" disabled={!row.productId} value={row.quantity}
                           onChange={(e) => updateRow(row.rowKey, { quantity: e.target.value })} onKeyDown={(e) => onQtyKey(e, row, idx)}
@@ -488,7 +693,7 @@ export default function Billing({ showToast }) {
             <label className="block text-[11px] font-bold text-black mb-0.5">Notes</label>
             <textarea className="field bg-white min-h-[48px] resize-y" placeholder="Thank you for your business!" value={tab.notes || ''} onChange={(e) => updateTab(tab.id, { notes: e.target.value })} />
           </div>
-          <p className="text-[10px] text-black/45 shrink-0 pb-1">Type to search · Enter on Qty → next · ✓ ↑↓ · W/R · Ctrl+S save · F3 customer · Alt+0 product</p>
+          <p className="text-[10px] text-black/45 shrink-0 pb-1">Bill no. Enter to load · Ctrl+W close tab · Ctrl+T new · Alt+1 last bill · F1 help</p>
         </div>
 
         <aside className="w-[300px] xl:w-[320px] shrink-0 border-l border-[#cbd5e1] bg-white flex flex-col overflow-hidden">
@@ -502,7 +707,52 @@ export default function Billing({ showToast }) {
               <div className="t-row"><span className="t-label">Total</span><span className="t-value">{formatINR(billTotal)}</span></div>
               <div className="t-row"><span className="t-label">Previous balance</span><span className="t-value">{tab.customerId ? formatINR(previousBalance) : '—'}</span></div>
               <div className="t-row t-grand"><span className="t-label">Grand total</span><span className="t-value">{formatINR(grandTotal)}</span></div>
-              <div className="t-row"><span className="t-label">Amount paying now</span><input type="number" min="0" value={tab.amountReceived} onChange={(e) => updateTab(tab.id, { amountReceived: e.target.value, amountEdited: true })} className="field" /></div>
+              <div className="t-row items-center">
+                <span className="t-label">Pay by</span>
+                <div className="flex rounded-md border border-slate-200 overflow-hidden h-[30px] bg-white shrink-0">
+                  {[
+                    { id: 'cash', label: 'Cash' },
+                    { id: 'upi', label: 'UPI' },
+                    { id: 'both', label: 'Both' }
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        if (m.id === 'both') {
+                          const half = received > 0 ? String(received) : (tab.amountReceived || '');
+                          updateTab(tab.id, {
+                            payMethod: 'both',
+                            cashAmount: tab.cashAmount !== '' ? tab.cashAmount : half,
+                            upiAmount: tab.upiAmount !== '' ? tab.upiAmount : '',
+                            amountEdited: true
+                          });
+                        } else {
+                          updateTab(tab.id, { payMethod: m.id, amountEdited: true });
+                        }
+                      }}
+                      className={`px-2.5 text-[11px] font-bold ${(tab.payMethod || 'cash') === m.id ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}
+                    >{m.label}</button>
+                  ))}
+                </div>
+              </div>
+              {(tab.payMethod || 'cash') !== 'both' ? (
+                <div className="t-row"><span className="t-label">Amount paying now</span><input type="number" min="0" value={tab.amountReceived} onChange={(e) => updateTab(tab.id, { amountReceived: e.target.value, amountEdited: true })} className="field" /></div>
+              ) : (
+                <>
+                  <div className="t-row"><span className="t-label">Cash</span><input type="number" min="0" value={tab.cashAmount ?? ''} onChange={(e) => {
+                    const cashAmount = e.target.value;
+                    const total = (Number(cashAmount) || 0) + (Number(tab.upiAmount) || 0);
+                    updateTab(tab.id, { cashAmount, amountReceived: String(total), amountEdited: true });
+                  }} className="field" placeholder="0" /></div>
+                  <div className="t-row"><span className="t-label">UPI</span><input type="number" min="0" value={tab.upiAmount ?? ''} onChange={(e) => {
+                    const upiAmount = e.target.value;
+                    const total = (Number(tab.cashAmount) || 0) + (Number(upiAmount) || 0);
+                    updateTab(tab.id, { upiAmount, amountReceived: String(total), amountEdited: true });
+                  }} className="field" placeholder="0" /></div>
+                  <div className="t-row"><span className="t-label">Total paying</span><span className="t-value font-bold">{formatINR(received)}</span></div>
+                </>
+              )}
               <div className="t-row"><span className="t-label">Still due on this bill</span><span className="t-value">{formatINR(stillDue)}</span></div>
               {excess > 0 && (<div className="t-row"><label className="flex items-center gap-2 text-xs text-black font-medium"><input type="checkbox" checked={tab.treatExcessAsAdvance} onChange={(e) => updateTab(tab.id, { treatExcessAsAdvance: e.target.checked })} />Extra {formatINR(excess)} as advance</label></div>)}
             </div>
@@ -514,7 +764,7 @@ export default function Billing({ showToast }) {
               if (!tab.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
               const text = buildWhatsAppText().replace(/\*/g, '');
               const w = window.open('', '_blank');
-              if (w) { w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`); w.document.close(); w.print(); }
+              if (w) { w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '<').replace(/>/g, '>')}</pre>`); w.document.close(); w.print(); }
             }}><Printer size={15} /> Print Bill</button>
           </div>
         </aside>

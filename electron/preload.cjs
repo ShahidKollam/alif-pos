@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('alif', {
     nextNumber: (m, invoiceDate) => ipcRenderer.invoke('invoices:nextNumber', m, invoiceDate),
     save: (d) => ipcRenderer.invoke('invoices:save', d),
     get: (id) => ipcRenderer.invoke('invoices:get', id),
+    getByNumber: (n) => ipcRenderer.invoke('invoices:getByNumber', n),
     list: (f) => ipcRenderer.invoke('invoices:list', f)
   },
   customers: {

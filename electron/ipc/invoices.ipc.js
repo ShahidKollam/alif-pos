@@ -10,6 +10,16 @@ function wrap(fn) {
 }
 
 export function registerInvoicesIpc() {
+  const channels = [
+    'invoices:nextNumber',
+    'invoices:save',
+    'invoices:get',
+    'invoices:getByNumber',
+    'invoices:list'
+  ];
+  for (const ch of channels) {
+    try { ipcMain.removeHandler(ch); } catch (_) {}
+  }
   ipcMain.handle('invoices:nextNumber', wrap((_, m, invoiceDate) => h.getNextInvoiceNumber(asMode(m), invoiceDate)));
   ipcMain.handle('invoices:save', wrap((_, d) => {
     const data = asObject(d);
@@ -17,5 +27,6 @@ export function registerInvoicesIpc() {
     return h.saveInvoice(data);
   }));
   ipcMain.handle('invoices:get', wrap((_, id) => h.getInvoice(asId(id))));
+  ipcMain.handle('invoices:getByNumber', wrap((_, n) => h.getInvoiceByNumber(String(n || ''))));
   ipcMain.handle('invoices:list', wrap((_, f) => h.listInvoices(f || {})));
 }

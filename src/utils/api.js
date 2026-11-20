@@ -21,6 +21,7 @@ export const api = {
     nextNumber: (m, d) => a() ? a().invoices.nextNumber(m, d) : Promise.resolve('W-26-11-AA-001'),
     save: (d) => a() ? a().invoices.save(d) : notAvailable(),
     get: (id) => a() ? a().invoices.get(id) : Promise.resolve(null),
+    getByNumber: (n) => a() ? a().invoices.getByNumber(n) : Promise.resolve(null),
     list: (f) => a() ? a().invoices.list(f) : Promise.resolve([])
   },
   customers: {
