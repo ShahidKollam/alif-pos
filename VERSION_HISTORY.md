@@ -1,5 +1,17 @@
 # Alif POS — Version History
 
+## v2.2.8 — Inline billing table entry, bill W/R, verify, WhatsApp
+
+- Removed separate product entry bar; enter items directly in the billing table
+- Columns: # · Product (inline search) · ✓ verified · Qty · Rate · Amount
+- Single bill-level W/R control after Customer, before Bill date
+- No product codes shown on Billing; codes auto-generated internally on create
+- Verification checkbox per line; included in WhatsApp + print text
+- WhatsApp Bill button opens wa.me with customer phone when available
+- Table area scrolls independently (page chrome stays fixed)
+- Stock table: removed per-line W/R price column
+- Products add form: no Code field (auto P00001-style)
+
 ## v2.2.7 — Serial numbers on all tables + Billing table aligned to Products
 
 - Sequential roll numbers (# 1, 2, 3…) on every main table: Billing items, Products, Customers, Stock, Sales, Ledger, Reports (low stock), and Sales invoice detail
