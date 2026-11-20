@@ -10,7 +10,7 @@ function wrap(fn) {
 }
 
 export function registerInvoicesIpc() {
-  ipcMain.handle('invoices:nextNumber', wrap((_, m) => h.getNextInvoiceNumber(asMode(m))));
+  ipcMain.handle('invoices:nextNumber', wrap((_, m, invoiceDate) => h.getNextInvoiceNumber(asMode(m), invoiceDate)));
   ipcMain.handle('invoices:save', wrap((_, d) => {
     const data = asObject(d);
     if (!Array.isArray(data.items) || !data.items.length) throw new Error('Invoice must have items');
