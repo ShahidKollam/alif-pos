@@ -153,6 +153,24 @@ input[type=number] { -moz-appearance: textfield; }
   color: #fff !important;
 }
 .btn-primary:hover:not(:disabled) { background: var(--color-primary-hover); }
+
+/* Selected / active blue (accent) — white text & icons for contrast.
+   Needed because global `button { color: #0a0a0a }` overrides Tailwind text-white. */
+.seg-active {
+  background: var(--color-accent) !important;
+  color: #ffffff !important;
+}
+.seg-active svg {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+.btn-primary svg,
+.btn-success svg,
+.btn-danger svg {
+  color: #ffffff !important;
+  stroke: currentColor;
+}
+
 .btn-success { background: #059669; color: #fff !important; }
 .btn-ghost {
   background: #fff;
