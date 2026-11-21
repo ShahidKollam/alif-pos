@@ -1,5 +1,4 @@
 import {
-  LayoutDashboard,
   Package,
   Warehouse,
   Users,
@@ -10,7 +9,8 @@ import {
   ShoppingCart,
   PanelLeftClose,
   PanelLeft,
-  HelpCircle
+  HelpCircle,
+  Tags
 } from 'lucide-react';
 
 const items = [
@@ -18,6 +18,7 @@ const items = [
   { id: 'products', label: 'Products', icon: Package },
   { id: 'stock', label: 'Stock', icon: Warehouse },
   { id: 'customers', label: 'Customers', icon: Users },
+  { id: 'pricing', label: 'Personal Pricing', icon: Tags },
   { id: 'ledger', label: 'Ledger', icon: BookOpen },
   { id: 'sales', label: 'Sales', icon: Receipt },
   { id: 'reports', label: 'Reports', icon: BarChart3 },

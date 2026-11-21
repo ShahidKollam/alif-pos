@@ -9,6 +9,7 @@ import Ledger from './pages/Ledger';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import PersonalPricing from './pages/PersonalPricing';
 import HelpModal from './components/HelpModal';
 import Toast from './components/Toast';
 import { api } from './utils/api';
@@ -116,25 +117,21 @@ export default function App() {
         current={page}
         onNavigate={setPage}
         collapsed={sidebarCollapsed && !sidebarPinned}
-        onToggle={() => {
+        onToggleCollapse={() => {
           setSidebarPinned((p) => {
             const next = !p;
             setSidebarCollapsed(!next);
             return next;
           });
         }}
-        onHoverExpand={() => {
-          if (!sidebarPinned) setSidebarCollapsed(false);
-        }}
-        onHoverCollapse={() => {
-          if (!sidebarPinned) setSidebarCollapsed(true);
-        }}
+        onOpenHelp={() => setShowHelp(true)}
       />
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page === 'billing' && <Billing showToast={showToast} />}
         {page === 'products' && <Products showToast={showToast} />}
         {page === 'stock' && <Stock showToast={showToast} />}
         {page === 'customers' && <Customers showToast={showToast} />}
+        {page === 'pricing' && <PersonalPricing showToast={showToast} />}
         {page === 'ledger' && <Ledger showToast={showToast} />}
         {page === 'sales' && <Sales showToast={showToast} />}
         {page === 'reports' && <Reports />}
