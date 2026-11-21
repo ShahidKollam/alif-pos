@@ -1,5 +1,10 @@
 # Alif POS — Version History
 
+## v2.3.5 — Blue selected buttons: white text/icons
+
+- Selected W/R, Cash/UPI/Both, sidebar active item use `.seg-active` (accent blue + white text/icons)
+- Primary/success/danger buttons force white SVG icons
+
 ## v2.3.4 — WhatsApp without phone, Cash/UPI/Both pay
 
 - WhatsApp works without mobile (generic share); with number opens that chat
