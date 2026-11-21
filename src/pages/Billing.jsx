@@ -21,14 +21,6 @@ function newTab() {
   };
 }
 
-/** Tab bar label: customer name, else Walk-in #n, else saved invoice no. */
-function tabLabel(t) {
-  const name = (t.customerName || '').trim();
-  if (name) return name;
-  if (t.savedInvoiceId && t.invoiceNo) return t.invoiceNo;
-  return `Walk-in #${t.walkInNo || 1}`;
-}
-
 function migrateItems(items) {
   if (!Array.isArray(items) || !items.length) return [emptyRow()];
   return items.map((it) => ({
@@ -45,29 +37,10 @@ function initFromStorage() {
     tabSeq = Math.max(tabSeq, maxNum + 1);
     let maxWalk = saved.tabs.reduce((m, t) => Math.max(m, Number(t.walkInNo) || 0), 0);
     const tabs = saved.tabs.map((t) => {
-      const walkInNo = Number(t.walkInNo) || (++maxWalk);
-      const base = {
-        id: t.id || `t${tabSeq++}`,
-        walkInNo,
-        invoiceNo: t.invoiceNo || '',
-        savedInvoiceId: t.savedInvoiceId || null,
-        customerId: t.customerId ?? null,
-        customerName: t.customerName || '',
-        customerQuery: t.customerQuery != null ? t.customerQuery : (t.customerName || ''),
-        customerPhone: t.customerPhone || '',
-        customerOutstanding: t.customerOutstanding || 0,
-        customerAdvance: t.customerAdvance || 0,
-        billMode: t.billMode === 'retail' ? 'retail' : 'wholesale',
-        items: migrateItems(t.items),
-        discount: t.discount || 0,
-        amountReceived: t.amountReceived != null ? t.amountReceived : '',
-        amountEdited: !!t.amountEdited,
-        treatExcessAsAdvance: !!t.treatExcessAsAdvance,
-        notes: t.notes || '',
-        payMethod: t.payMethod || 'cash',
-        cashAmount: t.cashAmount || '',
-        upiAmount: t.upiAmount || ''
-      };
+      const base = { ...newTab(), ...t };
+      base.billMode = t.billMode === 'retail' ? 'retail' : 'wholesale';
+      base.items = migrateItems(t.items);
+      if (!base.payMethod) base.payMethod = 'cash';
       const last = base.items[base.items.length - 1];
       if (last?.productId) base.items = [...base.items, emptyRow()];
       return base;
@@ -592,7 +565,7 @@ export default function Billing({ showToast }) {
       <div className="tab-bar shrink-0 bg-[#e8eef5]">
         {tabs.map((t) => (
           <button key={t.id} type="button" className={`tab ${t.id === activeId ? 'active' : ''}`} onClick={() => setActiveId(t.id)}>
-            <span className="truncate">{tabLabel(t)}{(t.items || []).filter((i) => i.productId).length ? ` · ${(t.items || []).filter((i) => i.productId).length}` : ''}{t.savedInvoiceId ? ' · saved' : ''}</span>
+            <span className="truncate">{(t.customerName || '').trim() ? t.customerName : (t.invoiceNo || 'New bill')}{(t.items || []).filter((i) => i.productId).length ? ` · ${(t.items || []).filter((i) => i.productId).length}` : ''}</span>
             <span className="close" onClick={(e) => closeTab(t.id, e)} title="Close tab (Ctrl+W)"><X size={12} /></span>
           </button>
         ))}
