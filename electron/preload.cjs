@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('alif', {
     getByNumber: (n) => ipcRenderer.invoke('invoices:getByNumber', n),
     list: (f) => ipcRenderer.invoke('invoices:list', f)
   },
+  personalPrices: {
+    list: (f) => ipcRenderer.invoke('personalPrices:list', f),
+    get: (customerId, productId) => ipcRenderer.invoke('personalPrices:get', customerId, productId),
+    mapForCustomer: (customerId) => ipcRenderer.invoke('personalPrices:mapForCustomer', customerId),
+    upsert: (d) => ipcRenderer.invoke('personalPrices:upsert', d),
+    delete: (id) => ipcRenderer.invoke('personalPrices:delete', id)
+  },
   customers: {
     list: (f) => ipcRenderer.invoke('customers:list', f),
     get: (id) => ipcRenderer.invoke('customers:get', id),
@@ -50,5 +57,6 @@ contextBridge.exposeInMainWorld('alif', {
   },
   app: {
     info: () => ipcRenderer.invoke('app:info')
-  }
+  },
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
 });
