@@ -1,1 +1,1 @@
-@/tmp/alif-pos-git/src/pages/Billing.jsx
+file:///tmp/alif-pos-git/src/pages/Billing.jsx
