@@ -32,7 +32,7 @@ function migrateItems(items) {
 function initFromStorage() {
   const saved = loadBillingSession();
   if (saved?.tabs?.length) {
-    const maxNum = saved.tabs.reduce((m, t) => { const n = parseInt(String(t.id).replace(/\D/g, ''), 10); return Number.isFinite(n) ? Math.max(m, n) : m; }, 0);
+    const maxNum = saved.tabs.reduce((m, t) => { const n = parseInt(String(t.id).replace(/\\D/g, ''), 10); return Number.isFinite(n) ? Math.max(m, n) : m; }, 0);
     tabSeq = Math.max(tabSeq, maxNum + 1);
     const tabs = saved.tabs.map((t) => {
       const base = { ...newTab(), ...t };
@@ -605,8 +605,8 @@ export default function Billing({ showToast }) {
                   if (first) productInputRefs.current[first.rowKey]?.focus();
                 }
               }} className="flex rounded-md border border-slate-200 overflow-hidden h-[34px] bg-white focus:ring-2 focus:ring-blue-200 outline-none" title="Press W or R · Tab → products">
-                <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'wholesale' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'wholesale'); }} className={`flex-1 text-xs font-bold ${tab.billMode !== 'retail' ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}>W</button>
-                <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'retail' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'retail'); }} className={`flex-1 text-xs font-bold border-l border-slate-200 ${tab.billMode === 'retail' ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}>R</button>
+                <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'wholesale' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'wholesale'); }} className={`flex-1 text-xs font-bold ${tab.billMode !== 'retail' ? 'seg-active' : 'bg-white text-black'}`}>W</button>
+                <button type="button" onClick={() => { updateTab(tab.id, { billMode: 'retail' }); if (!tab.savedInvoiceId) loadInvoiceNo(tab.id, 'retail'); }} className={`flex-1 text-xs font-bold border-l border-slate-200 ${tab.billMode === 'retail' ? 'seg-active' : 'bg-white text-black'}`}>R</button>
               </div>
             </div>
             <div className="col-span-4 md:col-span-3"><label className="block text-[11px] font-bold text-black mb-0.5">Bill date</label><input className="field bg-white" value={invoiceDate} readOnly /></div>
@@ -731,7 +731,7 @@ export default function Billing({ showToast }) {
                           updateTab(tab.id, { payMethod: m.id, amountEdited: true });
                         }
                       }}
-                      className={`px-2.5 text-[11px] font-bold ${(tab.payMethod || 'cash') === m.id ? 'bg-[#1d4ed8] text-white' : 'bg-white text-black'}`}
+                      className={`px-2.5 text-[11px] font-bold ${(tab.payMethod || 'cash') === m.id ? 'seg-active' : 'bg-white text-black'}`}
                     >{m.label}</button>
                   ))}
                 </div>
