@@ -2,12 +2,11 @@ function getAlif() {
   return typeof window !== 'undefined' ? window.alif : null;
 }
 async function notAvailable() {
-  throw new Error('This action requires the Electron desktop app. Use npm run electron:dev or the installed app.');
+  throw new Error('This action requires the Electron desktop app. Use npm run electron:dev');
 }
 const a = () => getAlif();
 
 export const api = {
-  openExternal: (url) => (a() && a().shell?.openExternal ? a().shell.openExternal(url) : Promise.resolve(window.open(url, '_blank'))),
   products: {
     list: (f) => a() ? a().products.list(f) : Promise.resolve([]),
     get: (id) => a() ? a().products.get(id) : Promise.resolve(null),
@@ -23,6 +22,13 @@ export const api = {
     get: (id) => a() ? a().invoices.get(id) : Promise.resolve(null),
     getByNumber: (n) => a() ? a().invoices.getByNumber(n) : Promise.resolve(null),
     list: (f) => a() ? a().invoices.list(f) : Promise.resolve([])
+  },
+  personalPrices: {
+    list: (f) => a() ? a().personalPrices.list(f) : Promise.resolve([]),
+    get: (customerId, productId) => a() ? a().personalPrices.get(customerId, productId) : Promise.resolve(null),
+    mapForCustomer: (customerId) => a() ? a().personalPrices.mapForCustomer(customerId) : Promise.resolve({}),
+    upsert: (d) => a() ? a().personalPrices.upsert(d) : notAvailable(),
+    delete: (id) => a() ? a().personalPrices.delete(id) : notAvailable()
   },
   customers: {
     list: (f) => a() ? a().customers.list(f) : Promise.resolve([]),
@@ -55,6 +61,7 @@ export const api = {
   app: {
     info: () => a() ? a().app.info() : Promise.resolve({ name: 'Alif POS', version: 'dev' })
   },
+  openExternal: (url) => a() && a().openExternal ? a().openExternal(url) : Promise.resolve(window.open(url, '_blank')),
   get isElectron() {
     return !!getAlif();
   }
