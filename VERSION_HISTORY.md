@@ -1,5 +1,6 @@
 # Alif POS — Version History
 
+
 ## v2.4.2 — Tab labels + bill no + toast
 
 - Tabs: customer name only when selected; otherwise **Walk-in 1 / 2 / 3…**

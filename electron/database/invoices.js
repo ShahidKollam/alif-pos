@@ -135,7 +135,8 @@ export function saveInvoice(data) {
       amountPaise,
       wholesalePricePaise: product.wholesale_price_paise,
       retailPricePaise: product.retail_price_paise,
-      priceMode: lineMode
+      priceMode: lineMode,
+      verified: item.verified ? 1 : 0
     });
   }
   if (!data.billingMode || data.billingMode === 'auto') {
@@ -155,8 +156,8 @@ export function saveInvoice(data) {
 
   return db.transaction(() => {
     const insertItem = db.prepare(`
-      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise)
-      VALUES (?,?,?,?,?,?,?,?)
+      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise, verified)
+      VALUES (?,?,?,?,?,?,?,?,?)
     `);
     const updateStock = db.prepare(`UPDATE products SET current_stock = current_stock - ?, updated_at = datetime('now') WHERE id = ?`);
     const insertMovement = db.prepare(`
@@ -194,7 +195,7 @@ export function saveInvoice(data) {
       );
 
       for (const item of validatedItems) {
-        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise);
+        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
         updateStock.run(item.quantity, item.productId);
         insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', existingId, `Sale ${invoiceNumber}`);
       }
@@ -228,7 +229,7 @@ export function saveInvoice(data) {
     const invoiceId = invResult.lastInsertRowid;
 
     for (const item of validatedItems) {
-      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise);
+      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
       updateStock.run(item.quantity, item.productId);
       insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', invoiceId, `Sale ${invoiceNumber}`);
     }
@@ -292,7 +293,8 @@ export function getInvoice(id) {
     unitPrice: fromPaise(it.unit_price_paise),
     amount: fromPaise(it.amount_paise),
     wholesalePrice: fromPaise(it.wholesale_price_paise),
-    retailPrice: fromPaise(it.retail_price_paise)
+    retailPrice: fromPaise(it.retail_price_paise),
+    verified: !!it.verified
   }));
   return { ...mapInvoice(row), items };
 }

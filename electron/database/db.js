@@ -320,6 +320,50 @@ function runMigrations() {
       throw e;
     }
   }
+
+  if (!applied.has(4)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.exec(`
+        CREATE TABLE IF NOT EXISTS personal_prices (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL,
+          product_id INTEGER NOT NULL,
+          price_paise INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE(customer_id, product_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_pp_customer ON personal_prices(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_pp_product ON personal_prices(product_id);
+      `);
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (4)');
+      rawDb.run('COMMIT');
+      console.log('Migration 4 applied');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
+
+  if (!applied.has(5)) {
+    rawDb.run('BEGIN');
+    try {
+      // verified tick on bill lines (0/1)
+      try {
+        rawDb.run('ALTER TABLE invoice_items ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+      } catch (e) {
+        const msg = String(e && e.message || e);
+        if (!/duplicate column/i.test(msg)) throw e;
+      }
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (5)');
+      rawDb.run('COMMIT');
+      console.log('Migration 5 applied: invoice_items.verified');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
 }
 
 export function toPaise(amount) {
