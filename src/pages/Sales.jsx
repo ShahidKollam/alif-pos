@@ -32,7 +32,7 @@ export default function Sales({ showToast }) {
       </PageToolbar>
       <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap"><table className="pos-table">
-          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Invoice</th><th>Date</th><th>Mode</th><th>Customer</th><th className="text-right">Total</th><th className="text-right">Received</th><th className="text-right">Due</th><th></th></tr></thead>
+          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Invoice</th><th>Date</th><th>Mode</th><th>Customer</th><th className="text-right">Total Amount</th><th className="text-right">Paid Amount</th><th className="text-right">Balance Amount</th><th></th></tr></thead>
           <tbody>
             {rows.map((r, idx) => (
               <tr key={r.id}>
@@ -73,9 +73,10 @@ export default function Sales({ showToast }) {
               </table>
             </div>
             <div className="px-5 py-3 bg-slate-50 border-t text-sm space-y-1">
-              <div className="flex justify-between"><span>Total</span><strong>{formatINR(detail.total)}</strong></div>
-              <div className="flex justify-between text-slate-500"><span>Received</span><span>{formatINR(detail.amountReceived)}</span></div>
-              <div className="flex justify-between text-amber-700"><span>Due</span><span>{formatINR(detail.balanceDue)}</span></div>
+              {(detail.discount > 0) ? <div className="flex justify-between text-slate-500"><span>Discount</span><span>− {formatINR(detail.discount)}</span></div> : null}
+              <div className="flex justify-between"><span>Bill Amount</span><strong>{formatINR(detail.total)}</strong></div>
+              <div className="flex justify-between text-slate-500"><span>Paid Amount</span><span>{formatINR(detail.amountReceived)}</span></div>
+              <div className="flex justify-between text-amber-700"><span>Balance Amount</span><span>{formatINR(detail.balanceDue)}</span></div>
               {detail.notes ? (
                 <div className="pt-2 mt-1 border-t border-slate-200">
                   <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Notes</div>

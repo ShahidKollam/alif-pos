@@ -40,7 +40,7 @@ export default function Ledger({ showToast }) {
         </select>
         {customer && (
           <>
-            <span className="badge badge-amber">Outstanding {formatINR(customer.outstanding)}</span>
+            <span className="badge badge-amber">Old Balance {formatINR(customer.outstanding)}</span>
             <span className="badge badge-green">Advance {formatINR(customer.advance)}</span>
           </>
         )}
@@ -60,7 +60,7 @@ export default function Ledger({ showToast }) {
       )}
       <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap"><table className="pos-table">
-          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Date</th><th>Type</th><th>Notes</th><th className="text-right">Amount</th><th className="text-right">Balance</th></tr></thead>
+          <thead><tr><th className="text-center" style={{ width: 40 }}>#</th><th>Date</th><th>Type</th><th>Notes</th><th className="text-right">Amount</th><th className="text-right">Balance Amount</th></tr></thead>
           <tbody>
             {entries.map((e, idx) => (
               <tr key={e.id}>

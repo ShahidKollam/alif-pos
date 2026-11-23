@@ -66,8 +66,8 @@ export default function Customers({ showToast }) {
     if (!amt || amt <= 0) { showToast('Enter a valid payment amount', 'error'); return; }
     setPayBusy(true);
     try {
-      const res = await api.customers.collectPayment({ customerId: payCustomer.id, amount: amt, notes: payNotes || 'Previous due payment' });
-      showToast(`Payment recorded · outstanding now ${formatINR(res.outstanding)}`, 'success');
+      const res = await api.customers.collectPayment({ customerId: payCustomer.id, amount: amt, notes: payNotes || 'Old Balance payment' });
+      showToast(`Payment recorded · Old Balance now ${formatINR(res.outstanding)}`, 'success');
       setPayOpen(false); setPayCustomer(null); setPaySearch(''); setPayAmount(''); load();
     } catch (e) { showToast(e.message, 'error'); }
     finally { setPayBusy(false); }
@@ -83,7 +83,7 @@ export default function Customers({ showToast }) {
         <div className="pos-table-wrap"><table className="pos-table">
           <thead><tr>
             <th className="text-center" style={{ width: 40 }}>#</th><th>Name</th><th>Phone</th>
-            <th className="text-right num">Outstanding</th><th className="text-right num">Advance</th>
+            <th className="text-right num">Old Balance</th><th className="text-right num">Advance</th>
             <th className="text-center" style={{ width: 120 }}>Actions</th>
           </tr></thead>
           <tbody>
@@ -116,7 +116,7 @@ export default function Customers({ showToast }) {
               <div><label className="text-xs text-slate-500">Phone</label><input className="field mt-1" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
               <div><label className="text-xs text-slate-500">Address</label><input className="field mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
               {modal === 'add' && (<>
-                <div><label className="text-xs text-slate-500">Opening outstanding ₹</label><input type="number" className="field mt-1" value={form.outstanding} onChange={(e) => setForm({ ...form, outstanding: e.target.value })} /></div>
+                <div><label className="text-xs text-slate-500">Opening Old Balance ₹</label><input type="number" className="field mt-1" value={form.outstanding} onChange={(e) => setForm({ ...form, outstanding: e.target.value })} /></div>
                 <div><label className="text-xs text-slate-500">Opening advance ₹</label><input type="number" className="field mt-1" value={form.advance} onChange={(e) => setForm({ ...form, advance: e.target.value })} /></div>
               </>)}
             </div>
@@ -133,7 +133,7 @@ export default function Customers({ showToast }) {
           <div className="bg-white rounded-[14px] shadow-2xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center px-5 py-3 border-b"><h2 className="font-semibold">Receive payment</h2><button type="button" onClick={() => setPayOpen(false)}><X size={16} /></button></div>
             <div className="px-5 py-4 space-y-3 text-sm">
-              <p className="text-xs text-slate-500">Record money received against previous balance — no new bill required.</p>
+              <p className="text-xs text-slate-500">Record money received against Old Balance — no new bill required.</p>
               <div>
                 <label className="text-xs text-slate-500">Search customer (name or phone)</label>
                 <input className="field mt-1" value={paySearch} onChange={(e) => { setPaySearch(e.target.value); setPayCustomer(null); }} placeholder="Type to search…" autoFocus />
@@ -142,7 +142,7 @@ export default function Customers({ showToast }) {
                     {filteredForPay.slice(0, 15).map((c) => (
                       <button key={c.id} type="button" className="w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-slate-50 last:border-0" onClick={() => { setPayCustomer(c); setPaySearch(c.name); setPayAmount(c.outstanding > 0 ? String(c.outstanding) : ''); }}>
                         <div className="font-medium">{c.name}</div>
-                        <div className="text-[11px] text-slate-400">{c.phone || '—'} · due {formatINR(c.outstanding)}</div>
+                        <div className="text-[11px] text-slate-400">{c.phone || '—'} · Old Balance {formatINR(c.outstanding)}</div>
                       </button>
                     ))}
                     {!filteredForPay.length && <div className="px-3 py-3 text-slate-400 text-center">No match</div>}
@@ -152,7 +152,7 @@ export default function Customers({ showToast }) {
               {payCustomer && (
                 <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
                   <div className="font-medium text-slate-800">{payCustomer.name}</div>
-                  <div className="text-xs text-amber-800 mt-0.5">Previous outstanding: <strong>{formatINR(payCustomer.outstanding)}</strong></div>
+                  <div className="text-xs text-amber-800 mt-0.5">Old Balance: <strong>{formatINR(payCustomer.outstanding)}</strong></div>
                 </div>
               )}
               <div><label className="text-xs text-slate-500">Amount paid ₹</label><input type="number" min="0" className="field mt-1" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} placeholder="0" /></div>

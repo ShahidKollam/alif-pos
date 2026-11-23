@@ -17,7 +17,7 @@ function emptyRow() {
 function newTab() {
   return {
     id: `t${tabSeq++}`, walkInNo: walkInSeq++, invoiceNo: '', savedInvoiceId: null, customerId: null, customerName: '', customerQuery: '', customerPhone: '',
-    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
+    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, discountType: 'amount', amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
   };
 }
 
@@ -60,6 +60,7 @@ function initFromStorage() {
         billMode: t.billMode === 'retail' ? 'retail' : 'wholesale',
         items: migrateItems(t.items),
         discount: t.discount || 0,
+        discountType: t.discountType === 'percent' ? 'percent' : 'amount',
         amountReceived: t.amountReceived != null ? t.amountReceived : '',
         amountEdited: !!t.amountEdited,
         treatExcessAsAdvance: !!t.treatExcessAsAdvance,
@@ -201,8 +202,9 @@ export default function Billing({ showToast }) {
       if (idx < 0) return prev;
       const next = prev.filter((x) => x.id !== id);
       if (next.length === 0) {
+        // Fresh blank bill after closing last tab — reset Walk-in numbering
+        walkInSeq = 1;
         const t = newTab();
-        // Defer so state updates stay ordered and reliable
         queueMicrotask(() => setActiveId(t.id));
         return [t];
       }
@@ -233,7 +235,7 @@ export default function Billing({ showToast }) {
     const items = (inv.items || []).map((it) => ({
       rowKey: `r${rowSeq++}`, productId: it.productId, productName: it.productName || '', category: (it.category && String(it.category).trim()) || null, stock: null,
       wholesalePrice: it.wholesalePrice || 0, retailPrice: it.retailPrice || 0, quantity: it.quantity,
-      rateOverride: it.unitPrice != null ? String(it.unitPrice) : '', verified: false, hasPersonalPrice: false
+      rateOverride: it.unitPrice != null ? String(it.unitPrice) : '', verified: !!it.verified, hasPersonalPrice: false
     }));
     items.push(emptyRow());
     let phone = '';
@@ -259,7 +261,7 @@ export default function Billing({ showToast }) {
     const patch = {
       savedInvoiceId: inv.id, invoiceNo: inv.invoiceNumber, billMode: inv.billingMode === 'retail' ? 'retail' : 'wholesale',
       customerId: inv.customerId || null, customerName: inv.customerName || '', customerQuery: inv.customerName || '',
-      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: advance, discount: inv.discount || 0,
+      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: advance, discount: inv.discount || 0, discountType: 'amount',
       amountReceived: inv.amountReceived != null ? String(inv.amountReceived) : '', amountEdited: true, notes: inv.notes || '', items,
       payMethod: 'cash', cashAmount: '', upiAmount: ''
     };
@@ -396,13 +398,29 @@ export default function Billing({ showToast }) {
   const filledItems = useMemo(() => (tab?.items || []).filter((i) => i.productId), [tab?.items]);
   const filledIds = useMemo(() => new Set(filledItems.map((i) => i.productId)), [filledItems]);
   const subtotal = useMemo(() => roundMoney(filledItems.reduce((s, i) => s + itemAmount(i), 0)), [filledItems, tab?.billMode, tab?.items]);
-  const discountVal = Math.min(Number(tab?.discount) || 0, subtotal);
-  const billTotal = roundMoney(subtotal - discountVal);
-  const previousBalance = tab?.customerOutstanding || 0;
-  const grandTotal = roundMoney(billTotal + previousBalance);
-  const received = Number(tab?.amountReceived) || 0;
-  const stillDue = roundMoney(Math.max(0, billTotal - received));
-  const excess = roundMoney(Math.max(0, received - billTotal));
+  // Discount applies to current bill subtotal only (never to Old Balance)
+  const discountRaw = Number(tab?.discount) || 0;
+  const discountType = tab?.discountType === 'percent' ? 'percent' : 'amount';
+  const discountVal = (() => {
+    if (discountRaw <= 0 || subtotal <= 0) return 0;
+    if (discountType === 'percent') {
+      const pct = Math.min(discountRaw, 100);
+      return Math.min(roundMoney(subtotal * (pct / 100)), subtotal);
+    }
+    return Math.min(roundMoney(discountRaw), subtotal);
+  })();
+  const billAmount = roundMoney(subtotal - discountVal); // Bill Amount after discount
+  const oldBalance = tab?.customerOutstanding || 0;
+  const totalAmount = roundMoney(billAmount + oldBalance); // Bill Amount + Old Balance
+  const paidAmount = Number(tab?.amountReceived) || 0;
+  const balanceAmount = roundMoney(Math.max(0, totalAmount - paidAmount));
+  // aliases used by existing pay-split / excess logic
+  const billTotal = billAmount;
+  const previousBalance = oldBalance;
+  const grandTotal = totalAmount;
+  const received = paidAmount;
+  const stillDue = balanceAmount;
+  const excess = roundMoney(Math.max(0, paidAmount - totalAmount));
 
   useEffect(() => {
     if (!tab || tab.amountEdited) return;
@@ -437,7 +455,8 @@ export default function Billing({ showToast }) {
         items: filledItems.map((i) => ({
           productId: i.productId, productName: i.productName, quantity: Number(i.quantity) || 0,
           priceMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
-          unitPrice: i.rateOverride !== '' && i.rateOverride != null ? Number(i.rateOverride) : undefined
+          unitPrice: i.rateOverride !== '' && i.rateOverride != null ? Number(i.rateOverride) : undefined,
+          verified: !!i.verified
         }))
       });
       lastSavedInvoiceId = result.id;
@@ -460,17 +479,24 @@ export default function Billing({ showToast }) {
     filledItems.forEach((it, idx) => {
       lines.push(`${idx + 1}. ${it.verified ? '✓' : '○'} ${it.productName} × ${it.quantity} @ ${formatINR(rateOf(it))} = ${formatINR(itemAmount(it))}`);
     });
-    lines.push(''); lines.push(`Total: ${formatINR(billTotal)}`);
-    if (previousBalance > 0) lines.push(`Previous: ${formatINR(previousBalance)}`);
-    lines.push(`*Grand total: ${formatINR(grandTotal)}*`);
+    lines.push('');
+    lines.push(`Subtotal: ${formatINR(subtotal)}`);
+    if (discountVal > 0) {
+      const discNote = discountType === 'percent' ? ` (${Number(tab.discount) || 0}%)` : '';
+      lines.push(`Discount${discNote}: ${formatINR(discountVal)}`);
+    }
+    lines.push(`Bill Amount: ${formatINR(billAmount)}`);
+    if (oldBalance > 0) lines.push(`Old Balance: ${formatINR(oldBalance)}`);
+    lines.push(`*Total Amount: ${formatINR(totalAmount)}*`);
     const pm = tab.payMethod || 'cash';
     if (pm === 'both') {
-      lines.push(`Paid: Cash ${formatINR(Number(tab.cashAmount) || 0)} + UPI ${formatINR(Number(tab.upiAmount) || 0)}`);
+      lines.push(`Paid Amount: Cash ${formatINR(Number(tab.cashAmount) || 0)} + UPI ${formatINR(Number(tab.upiAmount) || 0)}`);
     } else if (pm === 'upi') {
-      lines.push(`Paid via: UPI ${formatINR(received)}`);
+      lines.push(`Paid Amount (UPI): ${formatINR(paidAmount)}`);
     } else {
-      lines.push(`Paid via: Cash ${formatINR(received)}`);
+      lines.push(`Paid Amount (Cash): ${formatINR(paidAmount)}`);
     }
+    lines.push(`Balance Amount: ${formatINR(balanceAmount)}`);
     if (tab.notes) { lines.push(''); lines.push(tab.notes); }
     return lines.join('\n');
   }
@@ -562,6 +588,14 @@ export default function Billing({ showToast }) {
       requestAnimationFrame(() => { productInputRefs.current[next.rowKey]?.focus(); });
     }
   }
+  function onRateKey(e, row, idx) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const items = tab.items; let next = items[idx + 1];
+      if (!next) { const withEmpty = [...items, emptyRow()]; setItems(withEmpty); next = withEmpty[withEmpty.length - 1]; }
+      requestAnimationFrame(() => { productInputRefs.current[next.rowKey]?.focus(); });
+    }
+  }
   function onVerifyKey(e, row, idx) {
     if (e.key === 'ArrowDown') { e.preventDefault(); for (let i = idx + 1; i < tab.items.length; i++) if (tab.items[i].productId) { verifyRefs.current[tab.items[i].rowKey]?.focus(); return; } }
     else if (e.key === 'ArrowUp') { e.preventDefault(); for (let i = idx - 1; i >= 0; i--) if (tab.items[i].productId) { verifyRefs.current[tab.items[i].rowKey]?.focus(); return; } }
@@ -635,7 +669,7 @@ export default function Billing({ showToast }) {
                       if (opt.kind === 'walkin') return (<button key="walkin" type="button" className={`${base} text-slate-600`} onMouseDown={(e) => { e.preventDefault(); selectCustomer(null); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}>Walk-in / none</button>);
                       if (opt.kind === 'add') return (<button key="add" type="button" className={`${base} font-semibold text-blue-700`} onMouseDown={(e) => { e.preventDefault(); openAddCustomer(tab.customerQuery); }} onMouseEnter={() => setCustHighlight(oi)}><span className="inline-flex items-center gap-2"><Plus size={14} /> Add this customer “{(tab.customerQuery || '').trim()}”</span></button>);
                       const c = opt.c;
-                      return (<button key={c.id} type="button" className={base} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}><div className="font-medium text-black">{c.name}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · due ${formatINR(c.outstanding)}` : ''}</div></button>);
+                      return (<button key={c.id} type="button" className={base} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}><div className="font-medium text-black">{c.name}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · Old Balance ${formatINR(c.outstanding)}` : ''}</div></button>);
                     })}
                   </div>
                 )}
@@ -668,10 +702,10 @@ export default function Billing({ showToast }) {
             <table className="pos-table">
               <thead className="sticky top-0 z-10"><tr>
                 <th className="text-center" style={{ width: 36 }}>#</th>
-                <th className="text-center" style={{ width: 36 }} title="Verified">✓</th>
                 <th>Product</th>
                 <th style={{ width: 100 }}>Category</th>
                 <th className="text-center" style={{ width: 72 }}>Qty</th>
+                <th className="text-center" style={{ width: 36 }} title="Verified">✓</th>
                 <th className="text-right num" style={{ width: 100 }}>Rate (₹)</th>
                 <th className="text-right num" style={{ width: 110 }}>Amount (₹)</th>
                 <th className="text-center" style={{ width: 40 }}></th>
@@ -683,9 +717,6 @@ export default function Billing({ showToast }) {
                   return (
                     <tr key={row.rowKey}>
                       <td className="text-center text-slate-500 font-medium">{serial}</td>
-                      <td className="text-center">
-                        <input ref={(el) => { if (el) verifyRefs.current[row.rowKey] = el; }} type="checkbox" className="w-4 h-4 accent-blue-600" disabled={!row.productId} checked={!!row.verified} onChange={(e) => updateRow(row.rowKey, { verified: e.target.checked })} onKeyDown={(e) => onVerifyKey(e, row, idx)} title="Verified · ↑↓ · Space" />
-                      </td>
                       <td className="relative">
                         <input ref={(el) => { if (el) productInputRefs.current[row.rowKey] = el; }}
                           className="w-full bg-transparent border-0 outline-none font-bold text-black text-[13.5px] py-0.5 px-0" placeholder="Type product name…"
@@ -720,6 +751,9 @@ export default function Billing({ showToast }) {
                           onChange={(e) => updateRow(row.rowKey, { quantity: e.target.value })} onKeyDown={(e) => onQtyKey(e, row, idx)}
                           className="w-14 text-center bg-transparent border-0 outline-none font-semibold text-black py-0.5 mx-auto" />
                       </td>
+                      <td className="text-center">
+                        <input ref={(el) => { if (el) verifyRefs.current[row.rowKey] = el; }} type="checkbox" className="w-4 h-4 accent-blue-600" disabled={!row.productId} checked={!!row.verified} onChange={(e) => updateRow(row.rowKey, { verified: e.target.checked })} onKeyDown={(e) => onVerifyKey(e, row, idx)} title="Verified · ↑↓ · Space" />
+                      </td>
                       <td className="text-right num">
                         {row.productId ? (
                           <div className="flex flex-col items-end gap-0.5 py-0.5">
@@ -732,6 +766,7 @@ export default function Billing({ showToast }) {
                                 rateOverride: e.target.value,
                                 hasPersonalPrice: row.hasPersonalPrice
                               })}
+                              onKeyDown={(e) => onRateKey(e, row, idx)}
                               className={row.hasPersonalPrice
                                 ? 'w-24 text-right rounded px-1.5 py-0.5 font-semibold text-black outline-none border border-amber-200 bg-amber-100'
                                 : 'w-24 text-right bg-transparent border-0 outline-none font-semibold text-black py-0.5'}
@@ -768,10 +803,28 @@ export default function Billing({ showToast }) {
           </div>
           <div className="flex-1 overflow-y-auto">
             <div className="totals-card border-0 rounded-none shadow-none">
-              <div className="t-row"><span className="t-label">Discount</span><input type="number" min="0" value={tab.discount} onChange={(e) => updateTab(tab.id, { discount: e.target.value, amountEdited: false })} className="field rounded-md" /></div>
-              <div className="t-row"><span className="t-label">Total</span><span className="t-value">{formatINR(billTotal)}</span></div>
-              <div className="t-row"><span className="t-label">Previous balance</span><span className="t-value">{tab.customerId ? formatINR(previousBalance) : '—'}</span></div>
-              <div className="t-row t-grand"><span className="t-label">Grand total</span><span className="t-value">{formatINR(grandTotal)}</span></div>
+              <div className="t-row"><span className="t-label">Subtotal</span><span className="t-value">{formatINR(subtotal)}</span></div>
+              <div className="t-row items-center gap-1">
+                <span className="t-label">Discount</span>
+                <div className="flex items-center gap-1 flex-1 justify-end">
+                  <div className="flex rounded-md border border-slate-200 overflow-hidden h-[28px] bg-white shrink-0">
+                    <button type="button" className={`px-2 text-[10px] font-bold ${(tab.discountType || 'amount') === 'amount' ? 'seg-active' : 'bg-white text-black'}`}
+                      onClick={() => updateTab(tab.id, { discountType: 'amount', amountEdited: false })}>₹</button>
+                    <button type="button" className={`px-2 text-[10px] font-bold ${tab.discountType === 'percent' ? 'seg-active' : 'bg-white text-black'}`}
+                      onClick={() => updateTab(tab.id, { discountType: 'percent', amountEdited: false })}>%</button>
+                  </div>
+                  <input type="number" min="0" max={tab.discountType === 'percent' ? 100 : undefined} step="0.01"
+                    value={tab.discount}
+                    onChange={(e) => updateTab(tab.id, { discount: e.target.value, amountEdited: false })}
+                    className="field rounded-md w-[88px] text-right" placeholder="0" />
+                </div>
+              </div>
+              {discountVal > 0 ? (
+                <div className="t-row"><span className="t-label text-slate-500">Discount amount</span><span className="t-value text-slate-600">− {formatINR(discountVal)}</span></div>
+              ) : null}
+              <div className="t-row"><span className="t-label">Bill Amount</span><span className="t-value">{formatINR(billAmount)}</span></div>
+              <div className="t-row"><span className="t-label">Old Balance</span><span className="t-value">{tab.customerId ? formatINR(oldBalance) : '—'}</span></div>
+              <div className="t-row t-grand"><span className="t-label">Total Amount</span><span className="t-value">{formatINR(totalAmount)}</span></div>
               <div className="t-row items-center">
                 <span className="t-label">Pay by</span>
                 <div className="flex rounded-md border border-slate-200 overflow-hidden h-[30px] bg-white shrink-0">
@@ -802,7 +855,7 @@ export default function Billing({ showToast }) {
                 </div>
               </div>
               {(tab.payMethod || 'cash') !== 'both' ? (
-                <div className="t-row"><span className="t-label">Amount paying now</span><input type="number" min="0" value={tab.amountReceived} onChange={(e) => updateTab(tab.id, { amountReceived: e.target.value, amountEdited: true })} className="field" /></div>
+                <div className="t-row"><span className="t-label">Paid Amount</span><input type="number" min="0" value={tab.amountReceived} onChange={(e) => updateTab(tab.id, { amountReceived: e.target.value, amountEdited: true })} className="field" /></div>
               ) : (
                 <>
                   <div className="t-row"><span className="t-label">Cash</span><input type="number" min="0" value={tab.cashAmount ?? ''} onChange={(e) => {
@@ -815,10 +868,10 @@ export default function Billing({ showToast }) {
                     const total = (Number(tab.cashAmount) || 0) + (Number(upiAmount) || 0);
                     updateTab(tab.id, { upiAmount, amountReceived: String(total), amountEdited: true });
                   }} className="field" placeholder="0" /></div>
-                  <div className="t-row"><span className="t-label">Total paying</span><span className="t-value font-bold">{formatINR(received)}</span></div>
+                  <div className="t-row"><span className="t-label">Paid Amount</span><span className="t-value font-bold">{formatINR(received)}</span></div>
                 </>
               )}
-              <div className="t-row"><span className="t-label">Still due on this bill</span><span className="t-value">{formatINR(stillDue)}</span></div>
+              <div className="t-row"><span className="t-label">Balance Amount</span><span className="t-value">{formatINR(stillDue)}</span></div>
               {excess > 0 && (<div className="t-row"><label className="flex items-center gap-2 text-xs text-black font-medium"><input type="checkbox" checked={tab.treatExcessAsAdvance} onChange={(e) => updateTab(tab.id, { treatExcessAsAdvance: e.target.checked })} />Extra {formatINR(excess)} as advance</label></div>)}
             </div>
           </div>

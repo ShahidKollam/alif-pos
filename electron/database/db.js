@@ -349,6 +349,7 @@ function runMigrations() {
   if (!applied.has(5)) {
     rawDb.run('BEGIN');
     try {
+      // verified tick on bill lines (0/1)
       try {
         rawDb.run('ALTER TABLE invoice_items ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
       } catch (e) {

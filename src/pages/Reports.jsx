@@ -27,7 +27,7 @@ export default function Reports() {
     { label: 'Total sales', value: formatINR(totalSales), sub: `${invoices.length} invoices` },
     { label: 'Wholesale', value: formatINR(sum(wholesale)), sub: `${wholesale.length} bills` },
     { label: 'Retail', value: formatINR(sum(retail)), sub: `${retail.length} bills` },
-    { label: 'Customer outstanding', value: formatINR(totalOutstanding), sub: `${customers.filter((c) => c.outstanding > 0).length} with dues` },
+    { label: 'Old Balance', value: formatINR(totalOutstanding), sub: `${customers.filter((c) => c.outstanding > 0).length} with Old Balance` },
     { label: 'Active products', value: String(products.filter((p) => p.isActive).length), sub: `${lowStock.length} low stock` },
     { label: 'Customers', value: String(customers.length), sub: 'registered' }
   ];

@@ -1,16 +1,16 @@
 # Alif POS — Version History
 
-## v2.4.3 — Tick persist, column order, rate Enter, last-tab Walk-in reset
+## v2.4.4 — Amount/% discount + client bill summary labels
 
-- Closing the **last** bill tab opens a fresh blank bill and resets to **Walk-in 1**
-- Verified (tick) saved on invoice lines (`invoice_items.verified`, migration 5) — **onetime has db.js + invoices.js**
-- Tick column next to **Qty**; Enter on **Rate** advances to next item
-- Full correct `src/pages/Billing.jsx` is in the v2.4.3 ZIP deliverable (copy into this branch if needed)
+- Discount: Amount (₹) or Percentage (%) selector; calculated amount applied to **bill subtotal only**
+- Discount cannot exceed subtotal (UI + existing backend validation)
+- Bill summary & receipt/WhatsApp terms:
+  Subtotal → Discount → Bill Amount → Old Balance → Total Amount → Paid Amount → Balance Amount
+- Same terminology on Sales, Customers, Ledger
 
-## v2.4.2 — Tab labels + bill no + toast
+## v2.4.3 — Tick persist, last-tab Walk-in reset, rate Enter
 
-- Tabs: customer name only, or Walk-in 1 / 2 / 3…
-- Bill number empty until backend save; toast bill number only
+See prior notes.
 
 ## Earlier
 
