@@ -1,19 +1,16 @@
 # Alif POS — Version History
 
-## v2.4.0 — Personal Pricing + Sales bill notes
+## v2.4.3 — Tick persist, column order, rate Enter, last-tab Walk-in reset
 
-- Sales eye modal shows invoice notes when present
-- Personal Pricing: customer+product special rates (SQLite `personal_prices`)
-- Billing: PP shows as soft yellow editable rate; list W/R rate in grey below
-- Applied rate (PP or override) saved on bill items as unit price
+- Closing the **last** bill tab opens a fresh blank bill and resets to **Walk-in 1**
+- Verified (tick) saved on invoice lines (`invoice_items.verified`, migration 5) — **onetime has db.js + invoices.js**
+- Tick column next to **Qty**; Enter on **Rate** advances to next item
+- Full correct `src/pages/Billing.jsx` is in the v2.4.3 ZIP deliverable (copy into this branch if needed)
 
-## v2.3.5 — Blue selected buttons: white text/icons
+## v2.4.2 — Tab labels + bill no + toast
 
-- Selected W/R, Cash/UPI/Both, sidebar active item use `.seg-active`
-
-## v2.3.4 — WhatsApp without phone, Cash/UPI/Both pay
-
-- WhatsApp without mobile; Pay by Cash / UPI / Both
+- Tabs: customer name only, or Walk-in 1 / 2 / 3…
+- Bill number empty until backend save; toast bill number only
 
 ## Earlier
 

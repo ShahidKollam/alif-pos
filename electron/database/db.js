@@ -345,6 +345,24 @@ function runMigrations() {
       throw e;
     }
   }
+
+  if (!applied.has(5)) {
+    rawDb.run('BEGIN');
+    try {
+      try {
+        rawDb.run('ALTER TABLE invoice_items ADD COLUMN verified INTEGER NOT NULL DEFAULT 0');
+      } catch (e) {
+        const msg = String(e && e.message || e);
+        if (!/duplicate column/i.test(msg)) throw e;
+      }
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (5)');
+      rawDb.run('COMMIT');
+      console.log('Migration 5 applied: invoice_items.verified');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
 }
 
 export function toPaise(amount) {
