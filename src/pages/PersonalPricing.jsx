@@ -5,149 +5,138 @@ import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
 
 export default function PersonalPricing({ showToast }) {
-  const [rows, setRows] = useState([]);
-  const [search, setSearch] = useState('');
+  const [list, setList] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [modal, setModal] = useState(false);
+  const [customerId, setCustomerId] = useState('');
+  const [productId, setProductId] = useState('');
+  const [price, setPrice] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ customerId: '', productId: '', price: '' });
+  const [filterCust, setFilterCust] = useState('');
 
   const load = useCallback(async () => {
     try {
-      setRows(await api.personalPrices.list({ search: search || undefined }));
+      const [pp, cust, prod] = await Promise.all([
+        api.personalPrices.list(),
+        api.customers.list({ activeOnly: true }),
+        api.products.list({ activeOnly: true })
+      ]);
+      setList(Array.isArray(pp) ? pp : []);
+      setCustomers(Array.isArray(cust) ? cust : []);
+      setProducts(Array.isArray(prod) ? prod : []);
     } catch (e) {
-      showToast(e.message, 'error');
+      showToast?.(e.message || 'Could not load personal prices', 'error');
     }
-  }, [search, showToast]);
+  }, [showToast]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    api.customers.list({ activeOnly: true }).then(setCustomers).catch(() => {});
-    api.products.list({ activeOnly: true }).then(setProducts).catch(() => {});
-  }, []);
 
-  async function save() {
-    if (!form.customerId || !form.productId) {
-      showToast('Select customer and product', 'error');
-      return;
-    }
-    if (form.price === '' || Number.isNaN(Number(form.price)) || Number(form.price) < 0) {
-      showToast('Enter a valid price', 'error');
-      return;
-    }
+  async function addPrice() {
+    const cid = Number(customerId);
+    const pid = Number(productId);
+    const p = Number(price);
+    if (!cid || !pid) { showToast?.('Select customer and product', 'error'); return; }
+    if (!(p >= 0)) { showToast?.('Enter a valid price', 'error'); return; }
     setSaving(true);
     try {
-      await api.personalPrices.upsert({
-        customerId: Number(form.customerId),
-        productId: Number(form.productId),
-        price: Number(form.price)
-      });
-      showToast('Personal price saved', 'success');
-      setModal(false);
-      setForm({ customerId: '', productId: '', price: '' });
-      load();
+      await api.personalPrices.upsert({ customerId: cid, productId: pid, price: p });
+      setPrice('');
+      setProductId('');
+      await load();
+      showToast?.('Personal price saved', 'success');
     } catch (e) {
-      showToast(e.message || 'Save failed', 'error');
+      showToast?.(e.message || 'Save failed', 'error');
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(id) {
-    if (!confirm('Remove this personal price?')) return;
+    if (!id) return;
     try {
-      await api.personalPrices.delete(id);
-      showToast('Removed', 'success');
-      load();
+      await api.personalPrices.remove(id);
+      await load();
+      showToast?.('Removed', 'success');
     } catch (e) {
-      showToast(e.message, 'error');
+      showToast?.(e.message || 'Remove failed', 'error');
     }
   }
 
-  return (
-    <div className="flex flex-col h-full">
-      <PageToolbar title="Personal Pricing" search={search} onSearchChange={setSearch} searchPlaceholder="Customer or product…">
-        <button type="button" className="btn btn-primary ml-auto" onClick={() => setModal(true)}>
-          <Plus size={15} /> Add price
-        </button>
-      </PageToolbar>
-      <div className="flex-1 overflow-auto px-4 py-2">
-        <div className="pos-table-wrap">
-          <table className="pos-table">
-            <thead>
-              <tr>
-                <th className="text-center" style={{ width: 40 }}>#</th>
-                <th>Customer</th>
-                <th>Product</th>
-                <th className="text-right">Personal price (₹)</th>
-                <th className="text-center" style={{ width: 48 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, idx) => (
-                <tr key={r.id}>
-                  <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
-                  <td className="font-medium text-black">{r.customerName}</td>
-                  <td className="text-black">{r.productName}</td>
-                  <td className="text-right font-semibold tabular-nums">{formatINR(r.price)}</td>
-                  <td className="text-center">
-                    <button type="button" className="p-1 text-slate-400 hover:text-red-600 rounded-md hover:bg-red-50" title="Remove" onClick={() => remove(r.id)}>
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!rows.length && (
-                <tr>
-                  <td colSpan={5} className="text-center text-slate-400 py-10">
-                    No personal prices yet. Assign special rates for specific customers.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  const filtered = filterCust
+    ? list.filter((r) => String(r.customerId) === String(filterCust) || (r.customerName || '').toLowerCase().includes(filterCust.toLowerCase()))
+    : list;
 
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="px-5 py-3 border-b border-slate-100">
-              <h2 className="font-semibold text-black">Add personal price</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Special selling price for one customer + product</p>
+  return (
+    <div className="flex flex-col h-full min-h-0 bg-[#eef2f7]">
+      <PageToolbar title="Personal Pricing" subtitle="Customer-specific rates used automatically in Billing" />
+      <div className="flex-1 min-h-0 overflow-auto p-3 space-y-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div className="text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">Add / update rate</div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+            <div>
+              <label className="block text-[11px] font-bold text-black mb-0.5">Customer</label>
+              <select className="field bg-white" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                <option value="">Select customer</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-600">Customer *</label>
-                <select className="field mt-1" value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}>
-                  <option value="">Select customer…</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600">Product *</label>
-                <select className="field mt-1" value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })}>
-                  <option value="">Select product…</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600">Price (₹) *</label>
-                <input type="number" min="0" step="0.01" className="field mt-1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="0.00" />
-              </div>
+            <div>
+              <label className="block text-[11px] font-bold text-black mb-0.5">Product</label>
+              <select className="field bg-white" value={productId} onChange={(e) => setProductId(e.target.value)}>
+                <option value="">Select product</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
-              <button type="button" className="btn btn-ghost" onClick={() => setModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" disabled={saving} onClick={save}>{saving ? 'Saving…' : 'Save'}</button>
+            <div>
+              <label className="block text-[11px] font-bold text-black mb-0.5">Special price (₹)</label>
+              <input type="number" min="0" step="0.01" className="field bg-white" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" />
             </div>
+            <button type="button" className="btn btn-primary" disabled={saving} onClick={addPrice}>
+              <Plus size={15} /> Save rate
+            </button>
           </div>
         </div>
-      )}
+
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+            <div className="text-xs font-bold text-slate-700 uppercase tracking-wide flex-1">Saved rates</div>
+            <input className="field bg-white max-w-[220px]" placeholder="Filter by customer" value={filterCust} onChange={(e) => setFilterCust(e.target.value)} />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-[11px] uppercase text-slate-500">
+                <tr>
+                  <th className="px-3 py-2">Customer</th>
+                  <th className="px-3 py-2">Product</th>
+                  <th className="px-3 py-2 text-right">Price</th>
+                  <th className="px-3 py-2 w-12"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">No personal prices yet</td></tr>
+                )}
+                {filtered.map((r) => (
+                  <tr key={r.id} className="border-t border-slate-100">
+                    <td className="px-3 py-2">{r.customerName || r.customerId}</td>
+                    <td className="px-3 py-2">{r.productName || r.productId}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{formatINR(r.price)}</td>
+                    <td className="px-3 py-2">
+                      <button type="button" className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => remove(r.id)} title="Remove">
+                        <Trash2 size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

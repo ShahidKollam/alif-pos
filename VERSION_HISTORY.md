@@ -1,15 +1,21 @@
 # Alif POS — Version History
 
-## v2.4.6 — Bill summary extracted to BillSummaryPanel
 
-- `src/components/BillSummaryPanel.jsx` — right panel UI only (discount, totals, pay, save/print/WhatsApp)
-- `Billing.jsx` wires the same props/callbacks — **no logic or workflow change**
-- Personal price dialog remains in `PersonalPricePrompt.jsx`
+## v2.4.2 — Tab labels + bill no + toast
 
-## v2.4.5 — Personal price from Billing rate (Enter / Tab)
+- Tabs: customer name only when selected; otherwise **Walk-in 1 / 2 / 3…**
+- Bill number field stays empty until first successful save (number from backend only)
+- Save/Update toast shows only status + bill number (e.g. Updated W-26-11-AA-005) — no amount
 
-- Rate Enter/Tab → personal price dialog (Add/Update, Remove, Cancel + arrows)
+## v2.4.1 — Clean tab labels + reliable tab close
 
-## v2.4.4 — Amount/% discount + client bill summary labels
+- Tab close works for every tab (X + Ctrl+W)
+- Draft tabs do not pre-fetch invoice numbers
 
-- Discount ₹/% on subtotal; labels: Subtotal, Discount, Bill Amount, Old Balance, Total Amount, Paid Amount, Balance Amount
+## v2.4.0 — Personal Pricing + Sales bill notes
+
+- Personal Pricing, PP rates in Billing, Sales notes in eye modal
+
+## Earlier
+
+See git history.
