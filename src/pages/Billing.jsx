@@ -19,7 +19,7 @@ function emptyRow() {
 function newTab() {
   return {
     id: `t${tabSeq++}`, walkInNo: walkInSeq++, invoiceNo: '', savedInvoiceId: null, customerId: null, customerName: '', customerQuery: '', customerPhone: '',
-    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, discountType: 'amount', amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
+    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, discountType: 'amount', amountReceived: '', amountEdited: false, treatExcessAsAdvance: true, applyAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
   };
 }
 
@@ -201,6 +201,13 @@ export default function Billing({ showToast }) {
   function closeTab(id, e) {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+    const closing = tabs.find((x) => x.id === id);
+    const hasBillItems = !!(closing?.items || []).some((i) => i.productId);
+    const notSaved = !closing?.savedInvoiceId;
+    if (hasBillItems && notSaved) {
+      const ok = window.confirm('This bill is not saved and has items. Close this tab anyway?');
+      if (!ok) return;
+    }
     setTabs((prev) => {
       const idx = prev.findIndex((x) => x.id === id);
       if (idx < 0) return prev;
@@ -417,14 +424,18 @@ export default function Billing({ showToast }) {
   const oldBalance = tab?.customerOutstanding || 0;
   const totalAmount = roundMoney(billAmount + oldBalance); // Bill Amount + Old Balance
   const paidAmount = Number(tab?.amountReceived) || 0;
-  const balanceAmount = roundMoney(Math.max(0, totalAmount - paidAmount));
+  const customerAdvance = Number(tab?.customerAdvance) || 0;
+  const appliedAdvance = (tab?.applyAdvance && customerAdvance > 0)
+    ? roundMoney(Math.min(customerAdvance, totalAmount))
+    : 0;
+  const balanceAmount = roundMoney(Math.max(0, totalAmount - paidAmount - appliedAdvance));
   // aliases used by existing pay-split / excess logic
   const billTotal = billAmount;
   const previousBalance = oldBalance;
   const grandTotal = totalAmount;
   const received = paidAmount;
   const stillDue = balanceAmount;
-  const excess = roundMoney(Math.max(0, paidAmount - totalAmount));
+  const excess = roundMoney(Math.max(0, paidAmount + appliedAdvance - totalAmount));
 
   useEffect(() => {
     if (!tab || tab.amountEdited) return;
@@ -455,7 +466,9 @@ export default function Billing({ showToast }) {
         invoiceId: tab.savedInvoiceId || undefined,
         billingMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
         customerId: tab.customerId, customerName: tab.customerName, discount: discountVal, amountReceived: received,
-        treatExcessAsAdvance: tab.treatExcessAsAdvance, notes: notesOut,
+        treatExcessAsAdvance: tab.treatExcessAsAdvance,
+        applyAdvance: !!tab.applyAdvance,
+        notes: notesOut,
         items: filledItems.map((i) => ({
           productId: i.productId, productName: i.productName, quantity: Number(i.quantity) || 0,
           priceMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
@@ -467,8 +480,28 @@ export default function Billing({ showToast }) {
       lastSavedInvoiceNumber = result.invoiceNumber;
       try { sessionStorage.setItem('alif_last_bill_id', String(result.id)); sessionStorage.setItem('alif_last_bill_no', result.invoiceNumber); } catch (_) {}
       showToast(`${result.updated ? 'Updated' : 'Saved'} ${result.invoiceNumber}`, 'success');
-      updateTab(tab.id, { savedInvoiceId: result.id, invoiceNo: result.invoiceNumber });
-      api.customers.list({ activeOnly: true }).then(setCustomers).catch(() => {});
+      // Refresh Old Balance / Advance on this tab so cleared balances do not reappear
+      const balPatch = {
+        savedInvoiceId: result.id,
+        invoiceNo: result.invoiceNumber
+      };
+      if (result.customerOutstanding != null) balPatch.customerOutstanding = result.customerOutstanding;
+      if (result.customerAdvance != null) balPatch.customerAdvance = result.customerAdvance;
+      if (result.customerAdvance != null && Number(result.customerAdvance) <= 0) balPatch.applyAdvance = false;
+      updateTab(tab.id, balPatch);
+      try {
+        const list = await api.customers.list({ activeOnly: true });
+        setCustomers(list);
+        if (tab.customerId && result.customerOutstanding == null) {
+          const c = list.find((x) => Number(x.id) === Number(tab.customerId));
+          if (c) {
+            updateTab(tab.id, {
+              customerOutstanding: c.outstanding || 0,
+              customerAdvance: c.advance || 0
+            });
+          }
+        }
+      } catch (_) {}
     } catch (err) { showToast(err.message || 'Save failed', 'error'); }
     finally { setSaving(false); }
   }
@@ -900,27 +933,33 @@ export default function Billing({ showToast }) {
         </div>
 
         <BillSummaryPanel
-          tab={tab}
-          subtotal={subtotal}
-          discountVal={discountVal}
-          billAmount={billAmount}
-          oldBalance={oldBalance}
-          totalAmount={totalAmount}
-          received={received}
-          stillDue={stillDue}
-          excess={excess}
-          saving={saving}
-          hasItems={!!filledItems.length}
-          onUpdateTab={(patch) => updateTab(tab.id, patch)}
-          onSave={saveBill}
-          onWhatsApp={shareWhatsApp}
-          onPrint={() => {
+            tab={tab}
+            subtotal={subtotal}
+            discountVal={discountVal}
+            billAmount={billAmount}
+            oldBalance={oldBalance}
+            totalAmount={totalAmount}
+            received={received}
+            stillDue={stillDue}
+            excess={excess}
+            customerAdvance={customerAdvance}
+            appliedAdvance={appliedAdvance}
+            saving={saving}
+            hasItems={filledItems.length > 0}
+            onUpdateTab={(patch) => updateTab(tab.id, patch)}
+            onSave={saveBill}
+            onWhatsApp={shareWhatsApp}
+            onPrint={() => {
               if (!tab.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
               const text = buildWhatsAppText().replace(/\*/g, '');
               const w = window.open('', '_blank');
-              if (w) { w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '<').replace(/>/g, '>')}</pre>`); w.document.close(); w.print(); }
+              if (w) {
+                w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+                w.document.close();
+                w.print();
+              }
             }}
-        />
+          />
       </div>
 
       <PersonalPricePrompt
