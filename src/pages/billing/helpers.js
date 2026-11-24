@@ -16,6 +16,18 @@ export function getLastSavedId() {
   return lastSavedInvoiceId;
 }
 
+export function resetWalkInSeq() {
+  walkInSeq = 1;
+}
+
+export function nextRowKey() {
+  return `r${rowSeq++}`;
+}
+
+export function nextTabId() {
+  return `t${tabSeq++}`;
+}
+
 export function emptyRow() {
   return { rowKey: `r${rowSeq++}`, productId: null, productName: '', category: null, stock: null, wholesalePrice: 0, retailPrice: 0, quantity: '', rateOverride: '', verified: false, hasPersonalPrice: false };
 }
