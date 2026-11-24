@@ -234,6 +234,9 @@ export function saveInvoice(data) {
       insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', invoiceId, `Sale ${invoiceNumber}`);
     }
 
+    let customerOutstandingPaise = null;
+    let customerAdvancePaise = null;
+
     if (data.customerId) {
       const cust = db.prepare('SELECT * FROM customers WHERE id = ?').get(data.customerId);
       if (cust) {
@@ -244,11 +247,26 @@ export function saveInvoice(data) {
           INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
           VALUES (?, 'sale', ?, ?, 'invoice', ?, ?)
         `).run(data.customerId, totalPaise, outstanding, invoiceId, `Invoice ${invoiceNumber}`);
+        if (data.applyAdvance && advance > 0 && outstanding > 0) {
+          const useAdv = Math.min(advance, outstanding);
+          advance -= useAdv;
+          outstanding -= useAdv;
+          db.prepare(`
+            INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
+            VALUES (?, 'advance_applied', ?, ?, 'invoice', ?, ?)
+          `).run(data.customerId, -useAdv, outstanding, invoiceId, `Advance applied ${invoiceNumber}`);
+        }
         if (amountReceivedPaise > 0) {
-          let payAgainst = Math.min(amountReceivedPaise, outstanding);
-          let excess = amountReceivedPaise - payAgainst;
+          const payAgainst = Math.min(amountReceivedPaise, outstanding);
+          const excess = amountReceivedPaise - payAgainst;
           outstanding -= payAgainst;
-          if (excess > 0 && asAdvance) advance += excess;
+          if (excess > 0 && asAdvance) {
+            advance += excess;
+            db.prepare(`
+              INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
+              VALUES (?, 'advance', ?, ?, 'invoice', ?, ?)
+            `).run(data.customerId, excess, outstanding, invoiceId, `Advance from ${invoiceNumber}`);
+          }
           try {
             db.prepare(`
               INSERT INTO payments (customer_id, invoice_id, amount_paise, payment_type, notes)
@@ -262,6 +280,8 @@ export function saveInvoice(data) {
         }
         db.prepare(`UPDATE customers SET outstanding_paise=?, advance_paise=?, updated_at=datetime('now') WHERE id=?`)
           .run(outstanding, advance, data.customerId);
+        customerOutstandingPaise = outstanding;
+        customerAdvancePaise = advance;
       }
     }
 
@@ -270,7 +290,9 @@ export function saveInvoice(data) {
       invoiceNumber,
       total: fromPaise(totalPaise),
       balanceDue: fromPaise(balanceDuePaise),
-      updated: false
+      updated: false,
+      customerOutstanding: customerOutstandingPaise != null ? fromPaise(customerOutstandingPaise) : undefined,
+      customerAdvance: customerAdvancePaise != null ? fromPaise(customerAdvancePaise) : undefined
     };
   })();
 }

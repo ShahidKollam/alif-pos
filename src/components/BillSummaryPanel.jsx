@@ -15,6 +15,8 @@ export default function BillSummaryPanel({
   received,
   stillDue,
   excess,
+  customerAdvance = 0,
+  appliedAdvance = 0,
   saving,
   hasItems,
   onUpdateTab,
@@ -109,6 +111,21 @@ export default function BillSummaryPanel({
               ))}
             </div>
           </div>
+          {customerAdvance > 0 ? (
+            <div className="t-row">
+              <label className="flex items-center gap-2 text-xs text-black font-medium flex-1">
+                <input
+                  type="checkbox"
+                  checked={!!tab.applyAdvance}
+                  onChange={(e) => onUpdateTab({ applyAdvance: e.target.checked })}
+                />
+                Apply advance {formatINR(customerAdvance)}
+              </label>
+              {tab.applyAdvance && appliedAdvance > 0 ? (
+                <span className="t-value text-emerald-700 font-semibold">− {formatINR(appliedAdvance)}</span>
+              ) : null}
+            </div>
+          ) : null}
           {payMethod !== 'both' ? (
             <div className="t-row">
               <span className="t-label">Paid Amount</span>
