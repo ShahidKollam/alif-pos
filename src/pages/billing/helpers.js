@@ -35,7 +35,7 @@ export function emptyRow() {
 export function newTab() {
   return {
     id: `t${tabSeq++}`, walkInNo: walkInSeq++, invoiceNo: '', savedInvoiceId: null, customerId: null, customerName: '', customerQuery: '', customerPhone: '',
-    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, discountType: 'amount', amountReceived: '', amountEdited: false, treatExcessAsAdvance: false, applyAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
+    customerOutstanding: 0, customerAdvance: 0, billMode: 'wholesale', items: [emptyRow()], discount: 0, discountType: 'amount', amountReceived: '', amountEdited: false, treatExcessAsAdvance: true, applyAdvance: false, notes: '', payMethod: 'cash', cashAmount: '', upiAmount: ''
   };
 }
 
@@ -66,7 +66,6 @@ export function initFromStorage() {
       const base = {
         id: t.id || `t${tabSeq++}`,
         walkInNo,
-        // Keep saved invoice no only when this tab is a loaded/saved bill; drafts stay empty until save
         invoiceNo: t.savedInvoiceId ? (t.invoiceNo || '') : (t.invoiceNo || ''),
         savedInvoiceId: t.savedInvoiceId || null,
         customerId: t.customerId ?? null,
@@ -88,7 +87,6 @@ export function initFromStorage() {
         cashAmount: t.cashAmount || '',
         upiAmount: t.upiAmount || ''
       };
-      // Draft tabs must not show a provisional backend preview number
       if (!base.savedInvoiceId) base.invoiceNo = '';
       const last = base.items[base.items.length - 1];
       if (last?.productId) base.items = [...base.items, emptyRow()];
