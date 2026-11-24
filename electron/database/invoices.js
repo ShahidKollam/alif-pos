@@ -247,6 +247,15 @@ export function saveInvoice(data) {
           INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
           VALUES (?, 'sale', ?, ?, 'invoice', ?, ?)
         `).run(data.customerId, totalPaise, outstanding, invoiceId, `Invoice ${invoiceNumber}`);
+        if (data.applyAdvance && advance > 0 && outstanding > 0) {
+          const useAdv = Math.min(advance, outstanding);
+          advance -= useAdv;
+          outstanding -= useAdv;
+          db.prepare(`
+            INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
+            VALUES (?, 'advance_applied', ?, ?, 'invoice', ?, ?)
+          `).run(data.customerId, -useAdv, outstanding, invoiceId, `Advance applied ${invoiceNumber}`);
+        }
         if (amountReceivedPaise > 0) {
           const payAgainst = Math.min(amountReceivedPaise, outstanding);
           const excess = amountReceivedPaise - payAgainst;
