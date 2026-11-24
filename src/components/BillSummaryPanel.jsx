@@ -111,7 +111,73 @@ export default function BillSummaryPanel({
               ))}
             </div>
           </div>
-          {customerAdvance > 0 ? (
+          {payMethod !== 'both' ? (
+            <div className="t-row">
+              <span className="t-label">Paid Amount</span>
+              <input
+                type="number"
+                min="0"
+                value={tab.amountReceived}
+                onChange={(e) => onUpdateTab({ amountReceived: e.target.value, amountEdited: true })}
+                className="field"
+              />
+            </div>
+          ) : (
+            <>
+              <div className="t-row !grid-cols-2 gap-3 bg-slate-50/70 py-2.5">
+                <label className="min-w-0">
+                  <span className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Cash</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={tab.cashAmount ?? ''}
+                    onChange={(e) => {
+                      const cashAmount = e.target.value;
+                      const total = (Number(cashAmount) || 0) + (Number(tab.upiAmount) || 0);
+                      onUpdateTab({ cashAmount, amountReceived: String(total), amountEdited: true });
+                    }}
+                    className="field !w-full"
+                    placeholder="0"
+                  />
+                </label>
+                <label className="min-w-0">
+                  <span className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-blue-700"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />UPI</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={tab.upiAmount ?? ''}
+                    onChange={(e) => {
+                      const upiAmount = e.target.value;
+                      const total = (Number(tab.cashAmount) || 0) + (Number(upiAmount) || 0);
+                      onUpdateTab({ upiAmount, amountReceived: String(total), amountEdited: true });
+                    }}
+                    className="field !w-full"
+                    placeholder="0"
+                  />
+                </label>
+              </div>
+              {customerAdvance > 0 ? (
+                <div className="t-row">
+                  <label className="flex items-center gap-2 text-xs text-black font-medium flex-1">
+                    <input
+                      type="checkbox"
+                      checked={!!tab.applyAdvance}
+                      onChange={(e) => onUpdateTab({ applyAdvance: e.target.checked, amountEdited: false })}
+                    />
+                    Apply advance {formatINR(customerAdvance)}
+                  </label>
+                  {tab.applyAdvance && appliedAdvance > 0 ? (
+                    <span className="t-value text-emerald-700 font-semibold">− {formatINR(appliedAdvance)}</span>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="t-row">
+                <span className="t-label">Paid Amount</span>
+                <span className="t-value font-bold">{formatINR(received)}</span>
+              </div>
+            </>
+          )}
+          {payMethod !== 'both' && customerAdvance > 0 ? (
             <div className="t-row">
               <label className="flex items-center gap-2 text-xs text-black font-medium flex-1">
                 <input
@@ -126,55 +192,6 @@ export default function BillSummaryPanel({
               ) : null}
             </div>
           ) : null}
-          {payMethod !== 'both' ? (
-            <div className="t-row">
-              <span className="t-label">Paid Amount</span>
-              <input
-                type="number"
-                min="0"
-                value={tab.amountReceived}
-                onChange={(e) => onUpdateTab({ amountReceived: e.target.value, amountEdited: true })}
-                className="field"
-              />
-            </div>
-          ) : (
-            <>
-              <div className="t-row">
-                <span className="t-label">Cash</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={tab.cashAmount ?? ''}
-                  onChange={(e) => {
-                    const cashAmount = e.target.value;
-                    const total = (Number(cashAmount) || 0) + (Number(tab.upiAmount) || 0);
-                    onUpdateTab({ cashAmount, amountReceived: String(total), amountEdited: true });
-                  }}
-                  className="field"
-                  placeholder="0"
-                />
-              </div>
-              <div className="t-row">
-                <span className="t-label">UPI</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={tab.upiAmount ?? ''}
-                  onChange={(e) => {
-                    const upiAmount = e.target.value;
-                    const total = (Number(tab.cashAmount) || 0) + (Number(upiAmount) || 0);
-                    onUpdateTab({ upiAmount, amountReceived: String(total), amountEdited: true });
-                  }}
-                  className="field"
-                  placeholder="0"
-                />
-              </div>
-              <div className="t-row">
-                <span className="t-label">Paid Amount</span>
-                <span className="t-value font-bold">{formatINR(received)}</span>
-              </div>
-            </>
-          )}
           <div className="t-row">
             <span className="t-label">Balance Amount</span>
             <span className="t-value">{formatINR(stillDue)}</span>
