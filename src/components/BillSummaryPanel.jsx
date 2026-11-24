@@ -117,7 +117,7 @@ export default function BillSummaryPanel({
                 <input
                   type="checkbox"
                   checked={!!tab.applyAdvance}
-                  onChange={(e) => onUpdateTab({ applyAdvance: e.target.checked })}
+                  onChange={(e) => onUpdateTab({ applyAdvance: e.target.checked, amountEdited: false })}
                 />
                 Apply advance {formatINR(customerAdvance)}
               </label>
