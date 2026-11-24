@@ -21,7 +21,9 @@ export const api = {
     save: (d) => a() ? a().invoices.save(d) : notAvailable(),
     get: (id) => a() ? a().invoices.get(id) : Promise.resolve(null),
     getByNumber: (n) => a() ? a().invoices.getByNumber(n) : Promise.resolve(null),
-    list: (f) => a() ? a().invoices.list(f) : Promise.resolve([])
+    list: (f) => a() ? a().invoices.list(f) : Promise.resolve([]),
+    getReturnable: (id) => a() ? a().invoices.getReturnable(id) : Promise.resolve(null),
+    saveReturn: (d) => a() ? a().invoices.saveReturn(d) : notAvailable()
   },
   personalPrices: {
     list: (f) => a() ? a().personalPrices.list(f) : Promise.resolve([]),

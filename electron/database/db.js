@@ -364,6 +364,42 @@ function runMigrations() {
       throw e;
     }
   }
+
+  if (!applied.has(6)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.exec(`
+        CREATE TABLE IF NOT EXISTS invoice_returns (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          source_invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+          customer_id INTEGER NOT NULL REFERENCES customers(id),
+          total_paise INTEGER NOT NULL,
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS invoice_return_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          return_id INTEGER NOT NULL REFERENCES invoice_returns(id) ON DELETE CASCADE,
+          invoice_item_id INTEGER NOT NULL REFERENCES invoice_items(id),
+          product_id INTEGER NOT NULL REFERENCES products(id),
+          quantity REAL NOT NULL,
+          unit_price_paise INTEGER NOT NULL,
+          amount_paise INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_returns_invoice ON invoice_returns(source_invoice_id);
+      `);
+      for (const column of ['advance_applied_paise', 'return_credit_paise']) {
+        try { rawDb.run(`ALTER TABLE invoices ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`); }
+        catch (e) { if (!/duplicate column/i.test(String(e?.message || e))) throw e; }
+      }
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (6)');
+      rawDb.run('COMMIT');
+      console.log('Migration 6 applied: returns and invoice advance snapshots');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
 }
 
 export function toPaise(amount) {

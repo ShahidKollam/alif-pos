@@ -14,6 +14,8 @@ function mapInvoice(row) {
     total: fromPaise(row.total_paise),
     amountReceived: fromPaise(row.amount_received_paise),
     balanceDue: fromPaise(row.balance_due_paise),
+    advanceApplied: fromPaise(row.advance_applied_paise),
+    returnCredit: fromPaise(row.return_credit_paise),
     notes: row.notes,
     isDemo: !!row.is_demo,
     createdAt: row.created_at
@@ -168,6 +170,8 @@ export function saveInvoice(data) {
     if (existingId) {
       const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(existingId);
       if (!existing) throw new Error('Invoice not found');
+      const returnCount = db.prepare('SELECT COUNT(*) AS count FROM invoice_returns WHERE source_invoice_id = ?').get(existingId)?.count || 0;
+      if (returnCount) throw new Error('This bill has saved returns and cannot be edited. Create a new bill for further sales.');
       const invoiceNumber = existing.invoice_number;
       const oldItems = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(existingId);
       for (const oi of oldItems) {
@@ -236,6 +240,7 @@ export function saveInvoice(data) {
 
     let customerOutstandingPaise = null;
     let customerAdvancePaise = null;
+    let appliedAdvancePaise = 0;
 
     if (data.customerId) {
       const cust = db.prepare('SELECT * FROM customers WHERE id = ?').get(data.customerId);
@@ -249,6 +254,7 @@ export function saveInvoice(data) {
         `).run(data.customerId, totalPaise, outstanding, invoiceId, `Invoice ${invoiceNumber}`);
         if (data.applyAdvance && advance > 0 && outstanding > 0) {
           const useAdv = Math.min(advance, outstanding);
+          appliedAdvancePaise = useAdv;
           advance -= useAdv;
           outstanding -= useAdv;
           db.prepare(`
@@ -280,6 +286,7 @@ export function saveInvoice(data) {
         }
         db.prepare(`UPDATE customers SET outstanding_paise=?, advance_paise=?, updated_at=datetime('now') WHERE id=?`)
           .run(outstanding, advance, data.customerId);
+        db.prepare('UPDATE invoices SET advance_applied_paise = ? WHERE id = ?').run(appliedAdvancePaise, invoiceId);
         customerOutstandingPaise = outstanding;
         customerAdvancePaise = advance;
       }
@@ -316,7 +323,12 @@ export function getInvoice(id) {
     amount: fromPaise(it.amount_paise),
     wholesalePrice: fromPaise(it.wholesale_price_paise),
     retailPrice: fromPaise(it.retail_price_paise),
-    verified: !!it.verified
+    verified: !!it.verified,
+    returnedQty: Number(db.prepare(`
+      SELECT COALESCE(SUM(iri.quantity), 0) AS quantity
+      FROM invoice_return_items iri JOIN invoice_returns ir ON ir.id = iri.return_id
+      WHERE ir.source_invoice_id = ? AND iri.invoice_item_id = ?
+    `).get(id, it.id)?.quantity || 0)
   }));
   return { ...mapInvoice(row), items };
 }
@@ -342,6 +354,7 @@ export function listInvoices(filters = {}) {
   let sql = 'SELECT * FROM invoices WHERE 1=1';
   const params = [];
   if (filters.mode) { sql += ' AND billing_mode = ?'; params.push(filters.mode); }
+  if (filters.customerId) { sql += ' AND customer_id = ?'; params.push(Number(filters.customerId)); }
   if (filters.search) {
     sql += ' AND (invoice_number LIKE ? OR customer_name LIKE ?)';
     const q = `%${filters.search}%`;
@@ -351,4 +364,59 @@ export function listInvoices(filters = {}) {
   if (filters.toDate) { sql += ' AND invoice_date <= ?'; params.push(filters.toDate); }
   sql += ' ORDER BY created_at DESC LIMIT 300';
   return db.prepare(sql).all(...params).map(mapInvoice);
+}
+
+export function getReturnableInvoice(id) {
+  const invoice = getInvoice(id);
+  if (!invoice) return null;
+  const db = getDb();
+  const returned = db.prepare(`
+    SELECT iri.invoice_item_id, COALESCE(SUM(iri.quantity), 0) AS quantity
+    FROM invoice_return_items iri
+    JOIN invoice_returns ir ON ir.id = iri.return_id
+    WHERE ir.source_invoice_id = ? GROUP BY iri.invoice_item_id
+  `).all(id);
+  const returnedByItem = new Map(returned.map((r) => [Number(r.invoice_item_id), Number(r.quantity) || 0]));
+  return {
+    ...invoice,
+    items: invoice.items.map((item) => ({ ...item, returnedQty: returnedByItem.get(Number(item.id)) || 0 }))
+  };
+}
+
+export function saveReturn(data) {
+  const db = getDb();
+  const invoiceId = Number(data?.invoiceId);
+  const customerId = Number(data?.customerId);
+  if (!invoiceId || !customerId || !Array.isArray(data?.items) || !data.items.length) throw new Error('A customer and returned items are required');
+  return db.transaction(() => {
+    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ? AND customer_id = ?').get(invoiceId, customerId);
+    if (!invoice) throw new Error('Bill not found for this customer');
+    const validated = [];
+    let totalPaise = 0;
+    for (const requested of data.items) {
+      const qty = Number(requested.quantity) || 0;
+      if (qty <= 0) continue;
+      const item = db.prepare('SELECT * FROM invoice_items WHERE id = ? AND invoice_id = ?').get(Number(requested.invoiceItemId), invoiceId);
+      if (!item) throw new Error('Returned item no longer exists on this bill');
+      const used = db.prepare('SELECT COALESCE(SUM(iri.quantity), 0) AS quantity FROM invoice_return_items iri JOIN invoice_returns ir ON ir.id = iri.return_id WHERE ir.source_invoice_id = ? AND iri.invoice_item_id = ?').get(invoiceId, item.id).quantity || 0;
+      if (qty > Number(item.quantity) - Number(used)) throw new Error(`Return quantity exceeds sold quantity for ${item.product_name}`);
+      const amountPaise = Math.round(item.unit_price_paise * qty);
+      totalPaise += amountPaise;
+      validated.push({ item, qty, amountPaise });
+    }
+    if (!validated.length) throw new Error('Enter at least one return quantity');
+    const ret = db.prepare('INSERT INTO invoice_returns (source_invoice_id, customer_id, total_paise, notes) VALUES (?,?,?,?)').run(invoiceId, customerId, totalPaise, data.notes || `Return from ${invoice.invoice_number}`);
+    const returnId = ret.lastInsertRowid;
+    db.prepare('UPDATE invoices SET return_credit_paise = COALESCE(return_credit_paise, 0) + ? WHERE id = ?').run(totalPaise, invoiceId);
+    for (const entry of validated) {
+      db.prepare('INSERT INTO invoice_return_items (return_id, invoice_item_id, product_id, quantity, unit_price_paise, amount_paise) VALUES (?,?,?,?,?,?)').run(returnId, entry.item.id, entry.item.product_id, entry.qty, entry.item.unit_price_paise, entry.amountPaise);
+      db.prepare("UPDATE products SET current_stock = current_stock + ?, updated_at = datetime('now') WHERE id = ?").run(entry.qty, entry.item.product_id);
+      db.prepare("INSERT INTO stock_movements (product_id, movement_type, quantity, reference_type, reference_id, notes) VALUES (?, 'return', ?, 'return', ?, ?)").run(entry.item.product_id, entry.qty, returnId, `Return from ${invoice.invoice_number}`);
+    }
+    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
+    const advance = (customer.advance_paise || 0) + totalPaise;
+    db.prepare("UPDATE customers SET advance_paise = ?, updated_at = datetime('now') WHERE id = ?").run(advance, customerId);
+    db.prepare("INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes) VALUES (?, 'return_credit', ?, ?, 'return', ?, ?)").run(customerId, totalPaise, customer.outstanding_paise || 0, returnId, `Return credit from ${invoice.invoice_number}`);
+    return { id: returnId, customerId, amount: fromPaise(totalPaise), customerAdvance: fromPaise(advance) };
+  })();
 }

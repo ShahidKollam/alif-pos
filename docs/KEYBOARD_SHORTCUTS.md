@@ -16,6 +16,7 @@ Reference for cashiers and for the in-app Help window (**F1**).
 | **Ctrl+W** / **Cmd+W** | Close current bill tab |
 | **Alt+0** | Products page + Add product modal |
 | **Alt+1** | Open the **last saved bill** — focuses existing tab if open, otherwise loads it in a new tab |
+| **Alt+R** | Open **Return from earlier bill** on Billing |
 
 ## Billing — customer line
 
