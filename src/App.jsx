@@ -88,6 +88,12 @@ export default function App() {
         setTimeout(() => window.dispatchEvent(new CustomEvent('alif:open-last-bill')), 50);
         return;
       }
+      if (e.altKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        setPage('billing');
+        setTimeout(() => window.dispatchEvent(new CustomEvent('alif:open-return')), 50);
+        return;
+      }
       if (e.key === 'F8') { e.preventDefault(); setPage('billing'); window.dispatchEvent(new CustomEvent('alif:new-bill')); return; }
       if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {

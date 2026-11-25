@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Trash2, Plus, X, UserPlus } from 'lucide-react';
+import { Trash2, Plus, X, UserPlus, RotateCcw } from 'lucide-react';
 import { api } from '../../utils/api';
 import { formatINR, roundMoney } from '../../utils/money';
 import { saveBillingSession } from '../../utils/billingPersist';
@@ -20,6 +20,7 @@ import {
 import useBillCalculations from './hooks/useBillCalculations';
 import BillingTabs from './components/BillingTabs';
 import AddCustomerModal from './components/AddCustomerModal';
+import ReturnModal from './components/ReturnModal';
 
 export default function Billing({ showToast }) {
   const initial = useRef(null);
@@ -43,6 +44,7 @@ export default function Billing({ showToast }) {
   const [ppMap, setPpMap] = useState({});
   const [ppPrompt, setPpPrompt] = useState(null); // { rowKey, productId, productName, price, hasExisting, listRate, nextIdx }
   const [ppBusy, setPpBusy] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
   const suggestionsRef = useRef([]);
   const highlightRef = useRef(-1);
   const listBoxRef = useRef(null);
@@ -90,10 +92,12 @@ export default function Billing({ showToast }) {
     const onSave = () => saveBill();
     const onAddCust = () => openAddCustomer();
     const onLast = () => openLastSavedBill();
+    const onReturn = () => setReturnOpen(true);
     window.addEventListener('alif:new-bill', onNew);
     window.addEventListener('alif:save-bill', onSave);
     window.addEventListener('alif:open-add-customer', onAddCust);
     window.addEventListener('alif:open-last-bill', onLast);
+    window.addEventListener('alif:open-return', onReturn);
     const key = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 't') { e.preventDefault(); addTab(); }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); window.dispatchEvent(new CustomEvent('alif:save-bill')); }
@@ -102,13 +106,14 @@ export default function Billing({ showToast }) {
         closeTab(activeIdRef.current);
       }
     };
-    window.addEventListener('keydown', key);
+    window.addEventListener('keydown', key, true);
     return () => {
       window.removeEventListener('alif:new-bill', onNew);
       window.removeEventListener('alif:save-bill', onSave);
       window.removeEventListener('alif:open-add-customer', onAddCust);
       window.removeEventListener('alif:open-last-bill', onLast);
-      window.removeEventListener('keydown', key);
+      window.removeEventListener('alif:open-return', onReturn);
+      window.removeEventListener('keydown', key, true);
     };
   }, [tab?.id, tab?.items, saving, activeId, tabs.length]);
 
@@ -209,8 +214,8 @@ export default function Billing({ showToast }) {
     const patch = {
       savedInvoiceId: inv.id, invoiceNo: inv.invoiceNumber, billMode: inv.billingMode === 'retail' ? 'retail' : 'wholesale',
       customerId: inv.customerId || null, customerName: inv.customerName || '', customerQuery: inv.customerName || '',
-      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: advance, discount: inv.discount || 0, discountType: 'amount',
-      amountReceived: inv.amountReceived != null ? String(inv.amountReceived) : '', amountEdited: true, notes: inv.notes || '', items,
+      customerPhone: phone, customerOutstanding: outstanding, customerAdvance: inv.advanceApplied || advance, discount: inv.discount || 0, discountType: 'amount',
+      amountReceived: inv.amountReceived != null ? String(inv.amountReceived) : '', amountEdited: true, applyAdvance: Number(inv.advanceApplied) > 0, notes: inv.notes || '', items,
       payMethod: 'cash', cashAmount: '', upiAmount: ''
     };
     if (preferTabId) { updateTab(preferTabId, patch); setActiveId(preferTabId); }
@@ -728,6 +733,7 @@ export default function Billing({ showToast }) {
                   </div>
                 )}
               </div>
+              <button type="button" onClick={() => setReturnOpen(true)} className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900" title="Return from earlier bill (F8 / Alt+R)"><RotateCcw size={13} /> Return</button>
             </div>
             <div className="col-span-4 md:col-span-2">
               <label className="block text-[11px] font-bold text-black mb-0.5">W / R</label>
@@ -879,6 +885,21 @@ export default function Billing({ showToast }) {
             }}
           />
       </div>
+
+      <ReturnModal
+        open={returnOpen}
+        customerId={tab.customerId}
+        customerName={tab.customerName}
+        showToast={showToast}
+        onClose={() => setReturnOpen(false)}
+        onSaved={(result) => {
+          const returnedCustomer = customers.find((customer) => Number(customer.id) === Number(result.customerId));
+          if (returnedCustomer && Number(tab.customerId) !== Number(result.customerId)) selectCustomer(returnedCustomer);
+          updateTab(tab.id, { customerAdvance: result.customerAdvance, applyAdvance: true, amountEdited: false });
+          setCustomers((list) => list.map((customer) => Number(customer.id) === Number(tab.customerId) ? { ...customer, advance: result.customerAdvance } : customer));
+          showToast(`Return saved · ${formatINR(result.amount)} added as advance`, 'success');
+        }}
+      />
 
       <PersonalPricePrompt
         open={!!ppPrompt}
