@@ -7,7 +7,7 @@ export default function ReturnModal({ open, customerId, customerName, onClose, o
   const [allCustomers, setAllCustomers] = useState(false), [query, setQuery] = useState(''), [bills, setBills] = useState([]), [selected, setSelected] = useState(null), [qty, setQty] = useState({}), [busy, setBusy] = useState(false);
   const searchRef = useRef(null);
   useEffect(() => { if (open) { setQuery(''); setSelected(null); setQty({}); searchRef.current?.focus(); } }, [open]);
-  useEffect(() => { if (!open) return; api.invoices.list({ search: query, customerId: !allCustomers && customerId ? customerId : undefined }).then(setBills).catch(() => setBills([])); }, [open, query, customerId, allCustomers]);
+  useEffect(() => { if (!open) return; api.invoices.searchReturnable({ search: query, customerId: !allCustomers && customerId ? customerId : undefined }).then(setBills).catch(() => setBills([])); }, [open, query, customerId, allCustomers]);
   useEffect(() => { if (!open) return; const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); onClose(); } if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) { e.preventDefault(); searchRef.current?.focus(); } if (e.key === 'Enter' && total > 0) { e.preventDefault(); save(); } }; window.addEventListener('keydown', key); return () => window.removeEventListener('keydown', key); });
   const total = useMemo(() => (selected?.items || []).reduce((sum, item) => sum + (Number(qty[item.id]) || 0) * Number(item.unitPrice || 0), 0), [selected, qty]);
   async function pick(bill) { try { setSelected(await api.invoices.getReturnable(bill.id)); setQty({}); } catch (e) { showToast(e.message || 'Could not load bill', 'error'); } }

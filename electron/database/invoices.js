@@ -355,14 +355,21 @@ export function listInvoices(filters = {}) {
   const params = [];
   if (filters.mode) { sql += ' AND billing_mode = ?'; params.push(filters.mode); }
   if (filters.customerId) { sql += ' AND customer_id = ?'; params.push(Number(filters.customerId)); }
-  if (filters.search) {
-    sql += ' AND (invoice_number LIKE ? OR customer_name LIKE ?)';
+  const hasSearch = !!filters.search;
+  if (hasSearch) {
+    sql += ` AND (invoice_number LIKE ? OR customer_name LIKE ? OR id IN (
+      SELECT invoice_id FROM invoice_items WHERE product_name LIKE ?
+    ))`;
     const q = `%${filters.search}%`;
-    params.push(q, q);
+    params.push(q, q, q);
   }
   if (filters.fromDate) { sql += ' AND invoice_date >= ?'; params.push(filters.fromDate); }
   if (filters.toDate) { sql += ' AND invoice_date <= ?'; params.push(filters.toDate); }
-  sql += ' ORDER BY created_at DESC LIMIT 300';
+  if (hasSearch) {
+    const q = `%${filters.search}%`;
+    sql += ` ORDER BY CASE WHEN invoice_number LIKE ? THEN 0 WHEN customer_name LIKE ? THEN 1 ELSE 2 END, created_at DESC LIMIT 300`;
+    params.push(q, q);
+  } else sql += ' ORDER BY created_at DESC LIMIT 300';
   return db.prepare(sql).all(...params).map(mapInvoice);
 }
 
@@ -381,6 +388,23 @@ export function getReturnableInvoice(id) {
     ...invoice,
     items: invoice.items.map((item) => ({ ...item, returnedQty: returnedByItem.get(Number(item.id)) || 0 }))
   };
+}
+
+export function searchReturnableInvoices(filters = {}) {
+  const db = getDb();
+  const q = String(filters.search || '').trim();
+  let sql = `SELECT DISTINCT i.* FROM invoices i
+    LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
+    WHERE 1=1`;
+  const params = [];
+  if (filters.customerId) { sql += ' AND i.customer_id = ?'; params.push(Number(filters.customerId)); }
+  if (q) {
+    const like = `%${q}%`;
+    sql += ` AND (i.invoice_number LIKE ? OR i.customer_name LIKE ? OR ii.product_name LIKE ?)
+      ORDER BY CASE WHEN i.invoice_number LIKE ? THEN 0 WHEN i.customer_name LIKE ? THEN 1 ELSE 2 END, i.created_at DESC LIMIT 300`;
+    params.push(like, like, like, like, like);
+  } else sql += ' ORDER BY i.created_at DESC LIMIT 300';
+  return db.prepare(sql).all(...params).map(mapInvoice);
 }
 
 export function saveReturn(data) {

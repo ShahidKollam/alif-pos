@@ -18,6 +18,7 @@ export function registerInvoicesIpc() {
     'invoices:list',
     'invoices:getReturnable',
     'invoices:saveReturn'
+    ,'invoices:searchReturnable'
   ];
   for (const ch of channels) {
     try { ipcMain.removeHandler(ch); } catch (_) {}
@@ -33,4 +34,5 @@ export function registerInvoicesIpc() {
   ipcMain.handle('invoices:list', wrap((_, f) => h.listInvoices(f || {})));
   ipcMain.handle('invoices:getReturnable', wrap((_, id) => h.getReturnableInvoice(asId(id))));
   ipcMain.handle('invoices:saveReturn', wrap((_, d) => h.saveReturn(asObject(d))));
+  ipcMain.handle('invoices:searchReturnable', wrap((_, f) => h.searchReturnableInvoices(asObject(f))));
 }

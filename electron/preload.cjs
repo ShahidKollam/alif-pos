@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('alif', {
     list: (f) => ipcRenderer.invoke('invoices:list', f),
     getReturnable: (id) => ipcRenderer.invoke('invoices:getReturnable', id),
     saveReturn: (d) => ipcRenderer.invoke('invoices:saveReturn', d)
+    ,searchReturnable: (f) => ipcRenderer.invoke('invoices:searchReturnable', f)
   },
   personalPrices: {
     list: (f) => ipcRenderer.invoke('personalPrices:list', f),
