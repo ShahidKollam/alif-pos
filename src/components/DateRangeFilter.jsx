@@ -48,9 +48,9 @@ export default function DateRangeFilter({ preset = 'month', from = '', to = '', 
               key={p.id}
               type="button"
               onClick={() => applyPreset(p.id)}
-              className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-colors whitespace-nowrap ${
+              className={`date-preset-btn px-2 py-1 rounded-md text-[11px] font-semibold transition-colors whitespace-nowrap ${
                 active
-                  ? 'bg-[#0b1220] text-white shadow-sm'
+                  ? 'date-preset-active shadow-sm'
                   : 'text-slate-600 hover:bg-white hover:text-slate-900'
               }`}
             >
