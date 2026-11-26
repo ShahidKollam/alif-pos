@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Eye } from 'lucide-react';
-import PageToolbar from '../components/PageToolbar';
+import { Eye, Search } from 'lucide-react';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
@@ -10,6 +9,7 @@ const initialRange = rangePreset('month');
 
 export default function Sales({ showToast }) {
   const [rows, setRows] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState('');
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState('');
   const [detail, setDetail] = useState(null);
@@ -21,7 +21,8 @@ export default function Sales({ showToast }) {
     try {
       setRows(
         await api.invoices.list({
-          search: search || undefined,
+          customerSearch: customerSearch.trim() || undefined,
+          search: search.trim() || undefined,
           mode: mode || undefined,
           fromDate: fromDate ? dayStart(fromDate) : undefined,
           toDate: toDate ? dayEnd(toDate) : undefined
@@ -30,7 +31,7 @@ export default function Sales({ showToast }) {
     } catch (e) {
       showToast(e.message, 'error');
     }
-  }, [search, mode, fromDate, toDate, showToast]);
+  }, [customerSearch, search, mode, fromDate, toDate, showToast]);
 
   useEffect(() => {
     load();
@@ -52,16 +53,35 @@ export default function Sales({ showToast }) {
 
   return (
     <div className="flex flex-col h-full">
-      <PageToolbar title="Sales History" search={search} onSearchChange={setSearch} searchPlaceholder="Invoice or customer…">
-        <select className="field w-36" value={mode} onChange={(e) => setMode(e.target.value)}>
+      <div className="page-toolbar">
+        <h1>Sales History</h1>
+        <div className="search-field" style={{ maxWidth: 180, flex: '1 1 140px' }}>
+          <input
+            value={customerSearch}
+            onChange={(e) => setCustomerSearch(e.target.value)}
+            placeholder="Customer…"
+          />
+          <Search size={15} className="search-ico" />
+        </div>
+        <div className="search-field" style={{ maxWidth: 220, flex: '1 1 160px' }}>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Invoice or product…"
+          />
+          <Search size={15} className="search-ico" />
+        </div>
+        <select className="field w-36 shrink-0" value={mode} onChange={(e) => setMode(e.target.value)}>
           <option value="">All modes</option>
           <option value="wholesale">Wholesale</option>
           <option value="retail">Retail</option>
         </select>
-      </PageToolbar>
+      </div>
       <div className="px-4 py-2 border-b border-slate-200 bg-white shrink-0 flex flex-wrap items-center gap-2">
         <DateRangeFilter preset={datePreset} from={fromDate} to={toDate} onChange={onDateChange} />
-        <span className="text-[11px] text-slate-400 ml-auto">{rows.length} bill{rows.length === 1 ? '' : 's'}</span>
+        <span className="text-[11px] text-slate-400 ml-auto">
+          {rows.length} bill{rows.length === 1 ? '' : 's'}
+        </span>
       </div>
       <div className="flex-1 overflow-auto px-4 py-2">
         <div className="pos-table-wrap">
@@ -85,19 +105,25 @@ export default function Sales({ showToast }) {
                   <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
                   <td className="font-mono font-medium text-black">{r.invoiceNumber}</td>
                   <td className="text-xs text-slate-500">{r.invoiceDate}</td>
-                  <td><span className={`badge ${r.billingMode === 'wholesale' ? 'badge-blue' : 'badge-slate'}`}>{r.billingMode}</span></td>
+                  <td>
+                    <span className={`badge ${r.billingMode === 'wholesale' ? 'badge-blue' : 'badge-slate'}`}>{r.billingMode}</span>
+                  </td>
                   <td>{r.customerName || '—'}</td>
                   <td className="text-right font-semibold">{formatINR(r.total)}</td>
                   <td className="text-right text-emerald-700">{formatINR(r.amountReceived)}</td>
                   <td className="text-right text-amber-700">{formatINR(r.balanceDue)}</td>
                   <td>
-                    <button type="button" className="p-1 text-slate-400 hover:text-blue-600" onClick={() => open(r.id)}><Eye size={14} /></button>
+                    <button type="button" className="p-1 text-slate-400 hover:text-blue-600" onClick={() => open(r.id)}>
+                      <Eye size={14} />
+                    </button>
                   </td>
                 </tr>
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan={9} className="text-center text-slate-400 py-10">No sales in this date range</td>
+                  <td colSpan={9} className="text-center text-slate-400 py-10">
+                    No sales match these filters
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -112,7 +138,8 @@ export default function Sales({ showToast }) {
               <div>
                 <div className="font-semibold">{detail.invoiceNumber}</div>
                 <div className="text-xs text-slate-500">
-                  {detail.invoiceDate} · {detail.billingMode}{detail.customerName ? ` · ${detail.customerName}` : ''}
+                  {detail.invoiceDate} · {detail.billingMode}
+                  {detail.customerName ? ` · ${detail.customerName}` : ''}
                 </div>
               </div>
               <button type="button" className="btn btn-ghost" onClick={() => setDetail(null)}>Close</button>
