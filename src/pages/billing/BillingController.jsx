@@ -48,6 +48,7 @@ export default function Billing({ showToast }) {
   const suggestionsRef = useRef([]);
   const highlightRef = useRef(-1);
   const listBoxRef = useRef(null);
+  const custListRef = useRef(null);
   const productInputRefs = useRef({});
   const qtyInputRefs = useRef({});
   const verifyRefs = useRef({});
@@ -67,6 +68,12 @@ export default function Billing({ showToast }) {
     const el = listBoxRef.current.querySelector(`[data-sug-idx="${highlight}"]`);
     if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [highlight]);
+  // Keep highlighted customer option visible while arrowing in the dropdown
+  useEffect(() => {
+    if (!showCust || !custListRef.current) return;
+    const el = custListRef.current.querySelector(`[data-cust-idx="${custHighlight}"]`);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [custHighlight, showCust]);
   useEffect(() => { saveBillingSession(tabs, activeId); }, [tabs, activeId]);
 
   const updateTab = useCallback((id, patch) => { setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t))); }, []);
@@ -102,12 +109,16 @@ export default function Billing({ showToast }) {
     const onNew = () => addTab();
     const onNewSearch = () => addTab({ focus: 'billNo' });
     const onSave = () => saveBill();
+    const onWhatsApp = () => shareWhatsApp();
+    const onPrint = () => printBill();
     const onAddCust = () => openAddCustomer();
     const onLast = () => openLastSavedBill();
     const onReturn = () => setReturnOpen(true);
     window.addEventListener('alif:new-bill', onNew);
     window.addEventListener('alif:new-bill-search', onNewSearch);
     window.addEventListener('alif:save-bill', onSave);
+    window.addEventListener('alif:whatsapp-bill', onWhatsApp);
+    window.addEventListener('alif:print-bill', onPrint);
     window.addEventListener('alif:open-add-customer', onAddCust);
     window.addEventListener('alif:open-last-bill', onLast);
     window.addEventListener('alif:open-return', onReturn);
@@ -129,6 +140,8 @@ export default function Billing({ showToast }) {
       window.removeEventListener('alif:new-bill', onNew);
       window.removeEventListener('alif:new-bill-search', onNewSearch);
       window.removeEventListener('alif:save-bill', onSave);
+      window.removeEventListener('alif:whatsapp-bill', onWhatsApp);
+      window.removeEventListener('alif:print-bill', onPrint);
       window.removeEventListener('alif:open-add-customer', onAddCust);
       window.removeEventListener('alif:open-last-bill', onLast);
       window.removeEventListener('alif:open-return', onReturn);
@@ -499,6 +512,17 @@ export default function Billing({ showToast }) {
     return d;
   }
 
+  function printBill() {
+    if (!tab?.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
+    const body = buildWhatsAppText().replace(/\*/g, '');
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${body.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+      w.document.close();
+      w.print();
+    }
+  }
+
   async function shareWhatsApp() {
     if (!filledItems.length) { showToast('Add items before sharing', 'error'); return; }
     if (!tab.savedInvoiceId) { showToast('Save the bill first, then share on WhatsApp', 'error'); return; }
@@ -743,14 +767,14 @@ export default function Billing({ showToast }) {
                   }} />
                 <button type="button" title="Add customer" className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50" onMouseDown={(e) => { e.preventDefault(); openAddCustomer(); }}><UserPlus size={16} /></button>
                 {showCust && (
-                  <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-auto">
+                  <div ref={custListRef} className="absolute left-0 right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl max-h-52 overflow-auto">
                     {custOptions.map((opt, oi) => {
                       const active = oi === custHighlight;
                       const base = `w-full text-left px-3 py-2 text-sm border-b border-slate-50 last:border-0 ${active ? 'bg-blue-100 ring-1 ring-inset ring-blue-200' : 'hover:bg-blue-50'}`;
-                      if (opt.kind === 'walkin') return (<button key="walkin" type="button" className={`${base} text-slate-600`} onMouseDown={(e) => { e.preventDefault(); selectCustomer(null); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}>Walk-in / none</button>);
-                      if (opt.kind === 'add') return (<button key="add" type="button" className={`${base} font-semibold text-blue-700`} onMouseDown={(e) => { e.preventDefault(); openAddCustomer(tab.customerQuery); }} onMouseEnter={() => setCustHighlight(oi)}><span className="inline-flex items-center gap-2"><Plus size={14} /> Add this customer “{(tab.customerQuery || '').trim()}”</span></button>);
+                      if (opt.kind === 'walkin') return (<button key="walkin" type="button" data-cust-idx={oi} className={`${base} text-slate-600`} onMouseDown={(e) => { e.preventDefault(); selectCustomer(null); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}>Walk-in / none</button>);
+                      if (opt.kind === 'add') return (<button key="add" type="button" data-cust-idx={oi} className={`${base} font-semibold text-blue-700`} onMouseDown={(e) => { e.preventDefault(); openAddCustomer(tab.customerQuery); }} onMouseEnter={() => setCustHighlight(oi)}><span className="inline-flex items-center gap-2"><Plus size={14} /> Add this customer “{(tab.customerQuery || '').trim()}”</span></button>);
                       const c = opt.c;
-                      return (<button key={c.id} type="button" className={base} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}><div className="font-medium text-black">{c.name}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · Old Balance ${formatINR(c.outstanding)}` : ''}</div></button>);
+                      return (<button key={c.id} type="button" data-cust-idx={oi} className={base} onMouseDown={(e) => { e.preventDefault(); selectCustomer(c); setShowCust(false); }} onMouseEnter={() => setCustHighlight(oi)}><div className="font-medium text-black">{c.name}</div><div className="text-[11px] text-slate-500">{c.phone || '—'}{c.outstanding > 0 ? ` · Old Balance ${formatINR(c.outstanding)}` : ''}</div></button>);
                     })}
                   </div>
                 )}
@@ -895,16 +919,7 @@ export default function Billing({ showToast }) {
             onUpdateTab={(patch) => updateTab(tab.id, patch)}
             onSave={saveBill}
             onWhatsApp={shareWhatsApp}
-            onPrint={() => {
-              if (!tab.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
-              const text = buildWhatsAppText().replace(/\*/g, '');
-              const w = window.open('', '_blank');
-              if (w) {
-                w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
-                w.document.close();
-                w.print();
-              }
-            }}
+            onPrint={printBill}
           />
       </div>
 

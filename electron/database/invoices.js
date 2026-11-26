@@ -278,7 +278,7 @@ export function saveInvoice(data) {
               INSERT INTO payments (customer_id, invoice_id, amount_paise, payment_type, notes)
               VALUES (?, ?, ?, 'receipt', ?)
             `).run(data.customerId, invoiceId, amountReceivedPaise, `Payment for ${invoiceNumber}`);
-          } catch (_) {}
+          } catch (_) { }
           db.prepare(`
             INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
             VALUES (?, 'payment', ?, ?, 'invoice', ?, ?)
@@ -355,21 +355,33 @@ export function listInvoices(filters = {}) {
   const params = [];
   if (filters.mode) { sql += ' AND billing_mode = ?'; params.push(filters.mode); }
   if (filters.customerId) { sql += ' AND customer_id = ?'; params.push(Number(filters.customerId)); }
-  const hasSearch = !!filters.search;
-  if (hasSearch) {
-    sql += ` AND (invoice_number LIKE ? OR customer_name LIKE ? OR id IN (
+  // Dedicated customer name filter (Sales History customer box)
+  const customerQ = String(filters.customerSearch || filters.customer || '').trim();
+  if (customerQ) {
+    sql += ' AND customer_name LIKE ?';
+    params.push(`%${customerQ}%`);
+  }
+
+  // Invoice number OR product on the bill (not customer)
+  const searchQ = String(filters.search || '').trim();
+  if (searchQ) {
+    sql += ` AND (invoice_number LIKE ? OR id IN (
       SELECT invoice_id FROM invoice_items WHERE product_name LIKE ?
     ))`;
-    const q = `%${filters.search}%`;
-    params.push(q, q, q);
+    const q = `%${searchQ}%`;
+    params.push(q, q);
   }
+
   if (filters.fromDate) { sql += ' AND invoice_date >= ?'; params.push(filters.fromDate); }
   if (filters.toDate) { sql += ' AND invoice_date <= ?'; params.push(filters.toDate); }
-  if (hasSearch) {
-    const q = `%${filters.search}%`;
-    sql += ` ORDER BY CASE WHEN invoice_number LIKE ? THEN 0 WHEN customer_name LIKE ? THEN 1 ELSE 2 END, created_at DESC LIMIT 300`;
-    params.push(q, q);
-  } else sql += ' ORDER BY created_at DESC LIMIT 300';
+
+  if (searchQ) {
+    const q = `%${searchQ}%`;
+    sql += ` ORDER BY CASE WHEN invoice_number LIKE ? THEN 0 ELSE 1 END, created_at DESC LIMIT 300`;
+    params.push(q);
+  } else {
+    sql += ' ORDER BY created_at DESC LIMIT 300';
+  }
   return db.prepare(sql).all(...params).map(mapInvoice);
 }
 

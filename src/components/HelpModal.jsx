@@ -4,10 +4,13 @@ const globalShortcuts = [
   { key: 'F1', desc: 'Help (this window)' },
   { key: 'F2', desc: 'Products page + Add product' },
   { key: 'F3', desc: 'Add customer (Billing or Customers)' },
-  { key: 'F4', desc: 'New bill tab → focus Bill no. (search/recall)' },
+  { key: 'F4', desc: 'New tab → Bill no. (search/recall saved bill)' },
   { key: 'F8', desc: 'Billing / New bill tab → focus Customer' },
+  { key: 'F9', desc: 'Customers → Receive payment (pick customer + amount)' },
   { key: 'F11', desc: 'Full screen on / off' },
   { key: 'Ctrl+S', desc: 'Save / update current bill' },
+  { key: 'Ctrl+P', desc: 'Print current bill (must be saved first)' },
+  { key: 'Alt+W', desc: 'WhatsApp current bill (must be saved first)' },
   { key: 'Ctrl+T', desc: 'New bill tab → focus Customer' },
   { key: 'Ctrl+W', desc: 'Close current bill tab' },
   { key: 'Alt+0', desc: 'Products + open Add product' },
@@ -17,10 +20,15 @@ const globalShortcuts = [
 
 const billingShortcuts = [
   { key: 'W / R', desc: 'Wholesale / Retail (when W/R focused)' },
-  { key: 'Tab', desc: 'Customer → W/R → product name' },
-  { key: '↑ ↓', desc: 'Customer / product dropdown & rows' },
+  { key: 'Tab', desc: 'Customer → W/R → products → Bill summary fields' },
+  { key: '↑ ↓', desc: 'Customer / product lists; in Bill summary move field to field' },
+  { key: '← →', desc: 'In Bill summary: switch Discount ₹/% or Pay by Cash/UPI/Both' },
+  { key: 'C / U / B', desc: 'Pay by Cash / UPI / Both (when Pay by focused)' },
   { key: 'Enter', desc: 'Select dropdown item / next field' },
   { key: 'Esc', desc: 'Close dropdowns and dialogs' },
+  { key: 'Ctrl+S', desc: 'Save / Update Bill' },
+  { key: 'Ctrl+P', desc: 'Print Bill' },
+  { key: 'Alt+W', desc: 'WhatsApp Bill' },
   { key: '/', desc: 'Focus return search (Return modal)' }
 ];
 
@@ -46,17 +54,19 @@ export default function HelpModal({ page, onClose }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-800">Keyboard shortcuts</h2>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100"><X size={16} /></button>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Close">
+            <X size={18} />
+          </button>
         </div>
-        <div className="px-5 py-4">
-          <p className="text-xs text-slate-500 mb-3">Global and Billing page shortcuts. Full list: docs/KEYBOARD_SHORTCUTS.md</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <ShortcutList title="Global" shortcuts={globalShortcuts} />
-            <ShortcutList title="Billing" shortcuts={billingShortcuts} />
-          </div>
+        <div className="p-5 grid md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+          <ShortcutList title="Global" shortcuts={globalShortcuts} />
+          <ShortcutList
+            title={page === 'billing' ? 'Billing (this page)' : 'Billing'}
+            shortcuts={billingShortcuts}
+          />
         </div>
-        <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-right">
-          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+        <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500">
+          Press <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-white font-mono">Esc</kbd> or click outside to close · <kbd className="px-1.5 py-0.5 rounded border border-slate-200 bg-white font-mono">F1</kbd> opens this help anytime
         </div>
       </div>
     </div>

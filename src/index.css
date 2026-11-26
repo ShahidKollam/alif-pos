@@ -164,6 +164,30 @@ input[type=number] { -moz-appearance: textfield; }
   color: #ffffff !important;
   stroke: currentColor;
 }
+
+/* Bill summary Pay-by: distinct selected colors (Cash / UPI / Both) */
+.seg-pay-cash {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+.seg-pay-upi {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+.seg-pay-both {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+}
+
+/* Date range presets — black selected chip needs white text
+   (global button { color: #0a0a0a } beats Tailwind text-white). */
+.date-preset-active {
+  background: #0b1220 !important;
+  color: #ffffff !important;
+}
+.date-preset-btn.date-preset-active {
+  color: #ffffff !important;
+}
 .btn-primary svg,
 .btn-success svg,
 .btn-danger svg {

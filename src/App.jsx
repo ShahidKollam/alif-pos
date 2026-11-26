@@ -101,10 +101,27 @@ export default function App() {
         return;
       }
       if (e.key === 'F8') { e.preventDefault(); setPage('billing'); window.dispatchEvent(new CustomEvent('alif:new-bill')); return; }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        setPage('customers');
+        setTimeout(() => window.dispatchEvent(new CustomEvent('alif:open-receive-payment')), 50);
+        return;
+      }
       if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:save-bill'));
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:print-bill'));
+        return;
+      }
+      if (e.altKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:whatsapp-bill'));
+        return;
       }
     };
     window.addEventListener('keydown', handler);
