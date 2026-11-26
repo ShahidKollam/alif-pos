@@ -109,12 +109,16 @@ export default function Billing({ showToast }) {
     const onNew = () => addTab();
     const onNewSearch = () => addTab({ focus: 'billNo' });
     const onSave = () => saveBill();
+    const onWhatsApp = () => shareWhatsApp();
+    const onPrint = () => printBill();
     const onAddCust = () => openAddCustomer();
     const onLast = () => openLastSavedBill();
     const onReturn = () => setReturnOpen(true);
     window.addEventListener('alif:new-bill', onNew);
     window.addEventListener('alif:new-bill-search', onNewSearch);
     window.addEventListener('alif:save-bill', onSave);
+    window.addEventListener('alif:whatsapp-bill', onWhatsApp);
+    window.addEventListener('alif:print-bill', onPrint);
     window.addEventListener('alif:open-add-customer', onAddCust);
     window.addEventListener('alif:open-last-bill', onLast);
     window.addEventListener('alif:open-return', onReturn);
@@ -136,6 +140,8 @@ export default function Billing({ showToast }) {
       window.removeEventListener('alif:new-bill', onNew);
       window.removeEventListener('alif:new-bill-search', onNewSearch);
       window.removeEventListener('alif:save-bill', onSave);
+      window.removeEventListener('alif:whatsapp-bill', onWhatsApp);
+      window.removeEventListener('alif:print-bill', onPrint);
       window.removeEventListener('alif:open-add-customer', onAddCust);
       window.removeEventListener('alif:open-last-bill', onLast);
       window.removeEventListener('alif:open-return', onReturn);
@@ -504,6 +510,17 @@ export default function Billing({ showToast }) {
     if (d.length === 10) d = '91' + d;
     if (d.length === 11 && d.startsWith('0')) d = '91' + d.slice(1);
     return d;
+  }
+
+  function printBill() {
+    if (!tab?.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
+    const body = buildWhatsAppText().replace(/\*/g, '');
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${body.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
+      w.document.close();
+      w.print();
+    }
   }
 
   async function shareWhatsApp() {
@@ -902,16 +919,7 @@ export default function Billing({ showToast }) {
             onUpdateTab={(patch) => updateTab(tab.id, patch)}
             onSave={saveBill}
             onWhatsApp={shareWhatsApp}
-            onPrint={() => {
-              if (!tab.savedInvoiceId) { showToast('Save the bill first, then print', 'error'); return; }
-              const text = buildWhatsAppText().replace(/\*/g, '');
-              const w = window.open('', '_blank');
-              if (w) {
-                w.document.write(`<pre style="font:14px/1.4 system-ui;padding:24px;color:#0a0a0a">${text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`);
-                w.document.close();
-                w.print();
-              }
-            }}
+            onPrint={printBill}
           />
       </div>
 
