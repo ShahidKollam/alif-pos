@@ -164,6 +164,16 @@ input[type=number] { -moz-appearance: textfield; }
   color: #ffffff !important;
   stroke: currentColor;
 }
+
+/* Date range presets — black selected chip needs white text
+   (global button { color: #0a0a0a } beats Tailwind text-white). */
+.date-preset-active {
+  background: #0b1220 !important;
+  color: #ffffff !important;
+}
+.date-preset-btn.date-preset-active {
+  color: #ffffff !important;
+}
 .btn-primary svg,
 .btn-success svg,
 .btn-danger svg {
