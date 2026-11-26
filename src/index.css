@@ -28,56 +28,99 @@ html, body, #root {
 }
 
 /* Compact tables with clear row + column lines */
-.table-wrap {
-  overflow: auto;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  background: #fff;
-}
-table.data {
+.pos-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  background: #fff;
+  table-layout: auto;
 }
-table.data th {
+.pos-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #0a0a0a;
   background: var(--color-header-bg);
   border: 1px solid var(--color-line);
   padding: 6px 8px;
-  text-align: left;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.pos-table td {
+  padding: 4px 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid var(--color-line);
+  vertical-align: middle;
+  color: #0a0a0a;
+  background: #fff;
+  line-height: 1.25;
+}
+.pos-table tbody tr:nth-child(even) td { background: #f8fafc; }
+.pos-table tbody tr:hover td { background: #eff6ff; }
+.pos-table th.num,
+.pos-table td.num,
+.pos-table .text-right { text-align: right !important; }
+.pos-table .text-center { text-align: center !important; }
+
+.pos-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: #fff;
+}
+.pos-table-wrap .pos-table { border: none; }
+.pos-table-wrap .pos-table th:first-child,
+.pos-table-wrap .pos-table td:first-child { border-left: none; }
+.pos-table-wrap .pos-table th:last-child,
+.pos-table-wrap .pos-table td:last-child { border-right: none; }
+.pos-table-wrap .pos-table thead tr th { border-top: none; }
+.pos-table-wrap .pos-table tbody tr:last-child td { border-bottom: none; }
+
+.page-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 44px;
+  padding: 6px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--color-line);
+  flex-shrink: 0;
+}
+.page-toolbar h1 {
+  margin: 0;
+  font-size: 15px;
   font-weight: 700;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
   color: #0a0a0a;
   white-space: nowrap;
+  min-width: 80px;
 }
-table.data td {
-  border: 1px solid var(--color-line);
-  padding: 5px 8px;
-  vertical-align: middle;
+.page-toolbar .search-field {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 160px;
 }
-table.data tbody tr:hover { background: #f8fafc; }
-table.data .num { font-variant-numeric: tabular-nums; text-align: right; }
-
-.field {
+.page-toolbar .search-field input {
   width: 100%;
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-  font-size: 13px;
-  background: #fff;
-  color: #0a0a0a;
-  outline: none;
+  padding-left: 32px;
 }
-.field:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
+.page-toolbar .search-field .icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
 }
-
-button {
-  font-family: inherit;
-  cursor: pointer;
-  color: #0a0a0a;
+.page-toolbar .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -85,12 +128,15 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  height: 34px;
+  padding: 0 12px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
-  padding: 8px 12px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  transition: background 0.12s, border-color 0.12s;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary {
@@ -109,6 +155,7 @@ button {
   color: #ffffff !important;
   stroke: currentColor;
 }
+
 /* Bill summary Pay-by: distinct selected colors (Cash / UPI / Both) */
 .seg-pay-cash {
   background: #059669 !important;
@@ -145,57 +192,125 @@ button {
 .btn-danger:hover:not(:disabled) { background: #b91c1c; }
 .btn-ghost {
   background: #fff;
-  border-color: var(--color-line);
+  border: 1px solid var(--color-line);
   color: #0a0a0a;
 }
-.btn-ghost:hover:not(:disabled) { background: #f1f5f9; }
+.btn-ghost:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: var(--color-line-strong);
+}
+.btn-sm { height: 30px; padding: 0 10px; font-size: 12px; }
 
-/* Totals card (bill summary) */
+button {
+  color: #0a0a0a;
+  background: transparent;
+  border: none;
+  font: inherit;
+}
+
+.field {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: #0a0a0a;
+  font-size: 13px;
+  font-weight: 500;
+}
+.field:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+  outline: none;
+}
+.field::placeholder { color: #64748b; font-weight: 400; }
+
+.badge {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 600;
+  padding: 2px 7px; border-radius: 999px;
+}
+.badge-green { background: #ecfdf5; color: #065f46; }
+.badge-amber { background: #fffbeb; color: #92400e; }
+.badge-slate { background: #f1f5f9; color: #0a0a0a; }
+.badge-blue { background: #eff6ff; color: #1d4ed8; }
+
+.panel, .soft-card {
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.tab-bar {
+  display: flex; align-items: stretch; gap: 3px;
+  background: #e2e8f0; padding: 4px 6px 0; border-bottom: 1px solid var(--color-line);
+}
+.tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 10px; font-size: 12px; font-weight: 600;
+  background: #edf1f7; color: #0a0a0a;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: 1px solid transparent;
+  border-bottom: none; cursor: pointer; max-width: 160px;
+}
+.tab.active {
+  background: #fff; color: #0a0a0a;
+  border-color: var(--color-line);
+  box-shadow: 0 -1px 0 #fff;
+}
+.tab .close { opacity: 0.5; border-radius: 4px; padding: 1px; }
+.tab .close:hover { opacity: 1; background: #fee2e2; color: #b91c1c; }
+
+/* Totals — fixed label/value columns, no wrap break */
 .totals-card {
   background: #fff;
   border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
-.t-row {
+.totals-card .t-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr minmax(110px, auto);
   align-items: center;
-  gap: 8px;
-  padding: 5px 0;
-  border-bottom: 1px solid #eef2f7;
+  gap: 12px;
+  padding: 8px 14px;
   font-size: 13px;
+  border-bottom: 1px solid var(--color-line);
+  color: #0a0a0a;
+  min-height: 38px;
 }
-.t-row:last-child { border-bottom: 0; }
-.t-label { color: #334155; font-weight: 600; }
-.t-value { font-variant-numeric: tabular-nums; font-weight: 700; color: #0a0a0a; }
-.t-grand {
-  background: #f1f5f9;
-  margin: 4px -12px;
-  padding: 8px 12px;
-  border-bottom: 0;
-}
-.t-grand .t-label, .t-grand .t-value { font-size: 14px; font-weight: 800; }
-
-/* Sidebar nav */
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  color: #e2e8f0;
-  text-decoration: none;
-  font-size: 13px;
+.totals-card .t-row:last-child { border-bottom: none; }
+.totals-card .t-label {
+  color: #0a0a0a;
   font-weight: 600;
+  white-space: nowrap;
 }
-.sidebar-link:hover { background: rgba(255,255,255,0.06); }
-.sidebar-link.active {
-  background: var(--color-accent);
-  color: #fff;
+.totals-card .t-value {
+  font-weight: 700;
+  color: #0a0a0a;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.totals-card .t-grand {
+  background: #dbe7f8;
+  padding: 12px 14px;
+  min-height: 48px;
+}
+.totals-card .t-grand .t-label {
+  font-weight: 800;
+  font-size: 14px;
+}
+.totals-card .t-grand .t-value {
+  font-weight: 800;
+  font-size: 20px;
+  color: #1d4ed8;
+}
+.totals-card .t-row input.field {
+  width: 110px;
+  justify-self: end;
+  text-align: right;
+  font-weight: 700;
 }
 
-/* Scrollbars */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
+/* Sidebar hover expand helper width handled in component */
