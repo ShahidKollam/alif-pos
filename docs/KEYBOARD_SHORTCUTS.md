@@ -9,10 +9,11 @@ Reference for cashiers and for the in-app Help window (**F1**).
 | **F1** | Open Help |
 | **F2** | Go to Products and open **Add product** |
 | **F3** | Open **Add customer** (Billing page modal, or Customers page) |
-| **F8** | Go to Billing / new bill tab |
+| **F4** | New bill tab with cursor on **Bill no.** (search/recall saved bill) |
+| **F8** | Go to Billing / new bill tab with cursor on **Customer** |
 | **F11** | Toggle full screen |
 | **Ctrl+S** / **Cmd+S** | Save or update the current bill (Billing) |
-| **Ctrl+T** / **Cmd+T** | New bill tab |
+| **Ctrl+T** / **Cmd+T** | New bill tab with cursor on **Customer** |
 | **Ctrl+W** / **Cmd+W** | Close current bill tab |
 | **Alt+0** | Products page + Add product modal |
 | **Alt+1** | Open the **last saved bill** — focuses existing tab if open, otherwise loads it in a new tab |
@@ -43,6 +44,7 @@ Reference for cashiers and for the in-app Help window (**F1**).
 
 | Action | Behaviour |
 |--------|-----------|
+| **F4** | Opens a **new bill tab** and focuses the **Bill no.** field for search/recall |
 | Edit **Bill no.** and press **Enter** | Search and load that invoice. If the current tab has line items, opens in a **new tab**; if the tab is empty, loads in the **same tab**. |
 
 ## Notes
