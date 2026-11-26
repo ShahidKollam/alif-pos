@@ -54,6 +54,12 @@ export default function Customers({ showToast }) {
     setPayOpen(true);
   };
 
+  useEffect(() => {
+    const openPayEvt = () => openPay(null);
+    window.addEventListener('alif:open-receive-payment', openPayEvt);
+    return () => window.removeEventListener('alif:open-receive-payment', openPayEvt);
+  }, []);
+
   const filteredForPay = list.filter((c) => {
     const q = paySearch.trim().toLowerCase();
     if (!q) return true;
