@@ -11,7 +11,6 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import HelpModal from './components/HelpModal';
 import Toast from './components/Toast';
-import ReceivePaymentModal from './components/ReceivePaymentModal';
 import { api } from './utils/api';
 
 export default function App() {
@@ -19,7 +18,6 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [sidebarPinned, setSidebarPinned] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showReceivePayment, setShowReceivePayment] = useState(false);
   const [toast, setToast] = useState(null);
   const [ready, setReady] = useState(false);
 
@@ -138,7 +136,6 @@ export default function App() {
           });
         }}
         onOpenHelp={() => setShowHelp(true)}
-        onOpenReceivePayment={() => setShowReceivePayment(true)}
       />
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {page === 'billing' && <Billing showToast={showToast} />}
@@ -159,11 +156,6 @@ export default function App() {
         {isFullscreen ? <Minimize2 size={18} className="text-white" /> : <Maximize2 size={18} className="text-white" />}
       </button>
       {showHelp && <HelpModal page={page} onClose={() => setShowHelp(false)} />}
-      <ReceivePaymentModal
-        open={showReceivePayment}
-        showToast={showToast}
-        onClose={() => setShowReceivePayment(false)}
-      />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
