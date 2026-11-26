@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import DateRangeFilter from '../components/DateRangeFilter';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
+import { rangePreset, isInRange } from '../utils/dateRange';
 
 /**
  * Customer Ledger — view only.
- * Record payment is a separate Sidebar action (ReceivePaymentModal).
+ * Record payment lives on Customers (Receive payment / F9).
  */
 export default function Ledger({ showToast }) {
   const [customers, setCustomers] = useState([]);
@@ -14,6 +16,10 @@ export default function Ledger({ showToast }) {
   const [custHighlight, setCustHighlight] = useState(0);
   const [entries, setEntries] = useState([]);
   const [customer, setCustomer] = useState(null);
+  const initialRange = rangePreset('all');
+  const [datePreset, setDatePreset] = useState(initialRange.id);
+  const [fromDate, setFromDate] = useState(initialRange.from);
+  const [toDate, setToDate] = useState(initialRange.to);
   const custInputRef = useRef(null);
 
   useEffect(() => {
@@ -44,6 +50,17 @@ export default function Ledger({ showToast }) {
       return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
     })
     .slice(0, 20);
+
+  const filteredEntries = useMemo(
+    () => entries.filter((e) => isInRange(e.entryDate || e.createdAt || e.date, fromDate || '', toDate || '')),
+    [entries, fromDate, toDate]
+  );
+
+  function onDateChange({ preset, from, to }) {
+    setDatePreset(preset);
+    setFromDate(from || '');
+    setToDate(to || '');
+  }
 
   function selectCustomer(c) {
     if (!c) {
@@ -142,6 +159,12 @@ export default function Ledger({ showToast }) {
           </>
         )}
       </div>
+      {customerId && (
+        <div className="px-4 py-2 border-b border-slate-200 bg-white shrink-0 flex flex-wrap items-center gap-2">
+          <DateRangeFilter preset={datePreset} from={fromDate} to={toDate} onChange={onDateChange} />
+          <span className="text-[11px] text-slate-400 ml-auto">{filteredEntries.length} entr{filteredEntries.length === 1 ? 'y' : 'ies'}</span>
+        </div>
+      )}
 
       <div className="flex-1 overflow-auto p-4">
         {!customerId ? (
@@ -160,7 +183,7 @@ export default function Ledger({ showToast }) {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((e) => (
+                {filteredEntries.map((e) => (
                   <tr key={e.id}>
                     <td className="text-slate-600 text-xs whitespace-nowrap">
                       {e.createdAt || e.entryDate || e.date || '—'}
@@ -172,7 +195,7 @@ export default function Ledger({ showToast }) {
                     <td className="text-xs text-slate-500 max-w-[200px] truncate">{e.notes || '—'}</td>
                   </tr>
                 ))}
-                {!entries.length && (
+                {!filteredEntries.length && (
                   <tr>
                     <td colSpan={6} className="text-center text-slate-400 py-10">
                       No ledger entries
