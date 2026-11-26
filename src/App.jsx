@@ -101,6 +101,12 @@ export default function App() {
         return;
       }
       if (e.key === 'F8') { e.preventDefault(); setPage('billing'); window.dispatchEvent(new CustomEvent('alif:new-bill')); return; }
+      if (e.key === 'F9') {
+        e.preventDefault();
+        setPage('customers');
+        setTimeout(() => window.dispatchEvent(new CustomEvent('alif:open-receive-payment')), 50);
+        return;
+      }
       if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();

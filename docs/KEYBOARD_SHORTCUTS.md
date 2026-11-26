@@ -9,8 +9,9 @@ Reference for cashiers and for the in-app Help window (**F1**).
 | **F1** | Open Help |
 | **F2** | Go to Products and open **Add product** |
 | **F3** | Open **Add customer** (Billing page modal, or Customers page) |
-| **F4** | New bill tab with cursor on **Bill no.** (search/recall saved bill) |
+| **F4** | New tab → focus **Bill no.** (search/recall saved bill) |
 | **F8** | Go to Billing / new bill tab with cursor on **Customer** |
+| **F9** | Go to **Customers** and open **Receive payment** |
 | **F11** | Toggle full screen |
 | **Ctrl+S** / **Cmd+S** | Save or update the current bill (Billing) |
 | **Ctrl+T** / **Cmd+T** | New bill tab with cursor on **Customer** |
@@ -38,18 +39,12 @@ Reference for cashiers and for the in-app Help window (**F1**).
 | **↑ / ↓** | Move between product rows (when product dropdown is closed); or navigate product suggestions / verify checkboxes |
 | **Enter** on product | Pick highlighted product (skips items already on the bill) |
 | **Enter** on qty | Move to product name on the next row |
-| **Space / Enter** on ✓ | Toggle item verified |
+| **Delete** / row trash | Remove a line |
 
-## Billing — bill number
+## Customers — Receive payment
 
-| Action | Behaviour |
-|--------|-----------|
-| **F4** | Opens a **new bill tab** and focuses the **Bill no.** field for search/recall |
-| Edit **Bill no.** and press **Enter** | Search and load that invoice. If the current tab has line items, opens in a **new tab**; if the tab is empty, loads in the **same tab**. |
-
-## Notes
-
-- Product codes are not shown on Billing; they stay internal.
-- WhatsApp and Print require the bill to be **saved** first.
-- After **Save**, the bill stays open so you can add lines and **Update**.
-- Category shows the product’s own category; **General** only when the product has none.
+| Shortcut | Action |
+|----------|--------|
+| **F9** | Open **Receive payment** on Customers (search customer → amount → Record payment) |
+| Toolbar **Receive payment** | Same modal without shortcut |
+| Row banknote icon | Open payment prefilled for that customer |
