@@ -111,6 +111,17 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:save-bill'));
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:print-bill'));
+        return;
+      }
+      if (e.altKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (page === 'billing') window.dispatchEvent(new CustomEvent('alif:whatsapp-bill'));
+        return;
       }
     };
     window.addEventListener('keydown', handler);
