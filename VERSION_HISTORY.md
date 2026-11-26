@@ -1,5 +1,12 @@
 # Alif POS — Version History
 
+## v2.4.7 — Billing focus: Customer on new tab, F4 → Bill no.
+
+- New bill tab (**Ctrl+T** / **F8** / plus button): cursor starts on **Customer** search (not product row)
+- **F4**: new bill tab with cursor on **Bill no.** for search/recall (global + on Billing)
+- Switching existing tabs no longer steals focus
+- Help modal and keyboard docs updated
+
 
 ## v2.4.2 — Tab labels + bill no + toast
 
