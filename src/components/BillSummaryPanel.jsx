@@ -1,9 +1,17 @@
 import { Save, MessageCircle, Printer } from 'lucide-react';
 import { formatINR } from '../utils/money';
 
+const PAY_METHODS = [
+  { id: 'cash', label: 'Cash', activeClass: 'seg-pay-cash' },
+  { id: 'upi', label: 'UPI', activeClass: 'seg-pay-upi' },
+  { id: 'both', label: 'Both', activeClass: 'seg-pay-both' }
+];
+
 /**
  * Right-hand bill summary: totals, discount ₹/%, pay method, actions.
  * Pure presentation — all state and save/print logic stay in Billing.
+ * Keyboard: Arrow Left/Right (or Up/Down) on discount / pay segments to switch;
+ * Tab moves through inputs and action buttons normally.
  */
 export default function BillSummaryPanel({
   tab,
@@ -29,6 +37,53 @@ export default function BillSummaryPanel({
   const payMethod = tab.payMethod || 'cash';
   const discountType = tab.discountType || 'amount';
 
+  function setPayMethod(id) {
+    if (id === 'both') {
+      const half = received > 0 ? String(received) : (tab.amountReceived || '');
+      onUpdateTab({
+        payMethod: 'both',
+        cashAmount: tab.cashAmount !== '' ? tab.cashAmount : half,
+        upiAmount: tab.upiAmount !== '' ? tab.upiAmount : '',
+        amountEdited: true
+      });
+    } else {
+      onUpdateTab({ payMethod: id, amountEdited: true });
+    }
+  }
+
+  function onDiscountSegKey(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      onUpdateTab({ discountType: 'amount', amountEdited: false });
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      onUpdateTab({ discountType: 'percent', amountEdited: false });
+    } else if (e.key === '%' || e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      onUpdateTab({ discountType: 'percent', amountEdited: false });
+    } else if (e.key === 'r' || e.key === 'R' || e.key === '$') {
+      e.preventDefault();
+      onUpdateTab({ discountType: 'amount', amountEdited: false });
+    }
+  }
+
+  function onPaySegKey(e) {
+    const order = ['cash', 'upi', 'both'];
+    const idx = order.indexOf(payMethod);
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPayMethod(order[Math.max(0, idx - 1)]);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPayMethod(order[Math.min(order.length - 1, idx + 1)]);
+    } else {
+      const k = e.key.toLowerCase();
+      if (k === 'c') { e.preventDefault(); setPayMethod('cash'); }
+      else if (k === 'u') { e.preventDefault(); setPayMethod('upi'); }
+      else if (k === 'b') { e.preventDefault(); setPayMethod('both'); }
+    }
+  }
+
   return (
     <aside className="w-[300px] xl:w-[320px] shrink-0 border-l border-[#cbd5e1] bg-white flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-[#cbd5e1] bg-[#dbe7f8]">
@@ -43,14 +98,23 @@ export default function BillSummaryPanel({
           <div className="t-row items-center gap-1">
             <span className="t-label">Discount</span>
             <div className="flex items-center gap-1 flex-1 justify-end">
-              <div className="flex rounded-md border border-slate-200 overflow-hidden h-[28px] bg-white shrink-0">
+              <div
+                role="group"
+                aria-label="Discount type"
+                tabIndex={0}
+                onKeyDown={onDiscountSegKey}
+                className="flex rounded-md border border-slate-200 overflow-hidden h-[28px] bg-white shrink-0 outline-none focus:ring-2 focus:ring-blue-300"
+                title="← → or ↑ ↓ to switch · ₹ / %"
+              >
                 <button
                   type="button"
+                  tabIndex={-1}
                   className={`px-2 text-[10px] font-bold ${discountType === 'amount' ? 'seg-active' : 'bg-white text-black'}`}
                   onClick={() => onUpdateTab({ discountType: 'amount', amountEdited: false })}
                 >₹</button>
                 <button
                   type="button"
+                  tabIndex={-1}
                   className={`px-2 text-[10px] font-bold ${discountType === 'percent' ? 'seg-active' : 'bg-white text-black'}`}
                   onClick={() => onUpdateTab({ discountType: 'percent', amountEdited: false })}
                 >%</button>
@@ -84,29 +148,21 @@ export default function BillSummaryPanel({
           </div>
           <div className="t-row items-center">
             <span className="t-label">Pay by</span>
-            <div className="flex rounded-md border border-slate-200 overflow-hidden h-[30px] bg-white shrink-0">
-              {[
-                { id: 'cash', label: 'Cash' },
-                { id: 'upi', label: 'UPI' },
-                { id: 'both', label: 'Both' }
-              ].map((m) => (
+            <div
+              role="group"
+              aria-label="Pay method"
+              tabIndex={0}
+              onKeyDown={onPaySegKey}
+              className="flex rounded-md border border-slate-200 overflow-hidden h-[30px] bg-white shrink-0 outline-none focus:ring-2 focus:ring-blue-300"
+              title="← → or ↑ ↓ · C cash · U UPI · B both"
+            >
+              {PAY_METHODS.map((m) => (
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() => {
-                    if (m.id === 'both') {
-                      const half = received > 0 ? String(received) : (tab.amountReceived || '');
-                      onUpdateTab({
-                        payMethod: 'both',
-                        cashAmount: tab.cashAmount !== '' ? tab.cashAmount : half,
-                        upiAmount: tab.upiAmount !== '' ? tab.upiAmount : '',
-                        amountEdited: true
-                      });
-                    } else {
-                      onUpdateTab({ payMethod: m.id, amountEdited: true });
-                    }
-                  }}
-                  className={`px-2.5 text-[11px] font-bold ${payMethod === m.id ? 'seg-active' : 'bg-white text-black'}`}
+                  tabIndex={-1}
+                  onClick={() => setPayMethod(m.id)}
+                  className={`px-2.5 text-[11px] font-bold ${payMethod === m.id ? m.activeClass : 'bg-white text-black'}`}
                 >{m.label}</button>
               ))}
             </div>
