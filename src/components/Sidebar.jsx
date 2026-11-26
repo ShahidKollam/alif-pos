@@ -9,8 +9,7 @@ import {
   ShoppingCart,
   PanelLeftClose,
   PanelLeft,
-  HelpCircle,
-  IndianRupee
+  HelpCircle
 } from 'lucide-react';
 
 const items = [
@@ -19,13 +18,12 @@ const items = [
   { id: 'stock', label: 'Stock', icon: Warehouse },
   { id: 'customers', label: 'Customers', icon: Users },
   { id: 'ledger', label: 'Ledger', icon: BookOpen },
-  { id: 'payment', label: 'Record payment', icon: IndianRupee },
   { id: 'sales', label: 'Sales', icon: Receipt },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings }
 ];
 
-export default function Sidebar({ current, onNavigate, collapsed, onToggleCollapse, onOpenHelp, onOpenReceivePayment }) {
+export default function Sidebar({ current, onNavigate, collapsed, onToggleCollapse, onOpenHelp }) {
   return (
     <aside
       className={`${collapsed ? 'w-[56px]' : 'w-[200px]'} shrink-0 bg-[#0b1220] text-white flex flex-col transition-all duration-200`}
@@ -59,13 +57,7 @@ export default function Sidebar({ current, onNavigate, collapsed, onToggleCollap
               key={item.id}
               type="button"
               title={item.label}
-              onClick={() => {
-                if (item.id === 'payment') {
-                  onOpenReceivePayment?.();
-                  return;
-                }
-                onNavigate(item.id);
-              }}
+              onClick={() => onNavigate(item.id)}
               className={`w-full flex items-center gap-2.5 rounded-lg text-[13px] font-medium transition-colors
                 ${collapsed ? 'justify-center px-0 py-2.5' : 'px-2.5 py-2'}
                 ${active

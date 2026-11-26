@@ -13,7 +13,6 @@ const globalShortcuts = [
   { key: 'Alt+0', desc: 'Products + open Add product' },
   { key: 'Alt+1', desc: 'Open last saved bill (tab or new)' },
   { key: 'Alt+R', desc: 'Open return from earlier bill (Billing)' },
-  { key: 'Sidebar', desc: 'Record payment — receive against customer account' },
 ];
 
 const billingShortcuts = [
