@@ -99,44 +99,53 @@ html, body, #root {
 }
 .page-toolbar .search-field {
   position: relative;
-  flex: 1 1 220px;
-  max-width: 360px;
-  min-width: 160px;
+  flex: 1 1 200px;
+  max-width: 300px;
+  min-width: 140px;
 }
 .page-toolbar .search-field input {
   width: 100%;
-  padding-left: 32px;
+  padding: 6px 32px 6px 10px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  background: #fff;
+  color: #0a0a0a;
 }
-.page-toolbar .search-field .icon {
+.page-toolbar .search-field input:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+.page-toolbar .search-field .search-ico {
   position: absolute;
-  left: 10px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: #64748b;
   pointer-events: none;
 }
-.page-toolbar .actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-wrap: wrap;
+
+input, select, textarea, button {
+  color: #0a0a0a;
 }
+input:focus, select:focus, button:focus-visible, textarea:focus {
+  outline: none;
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+button:focus-visible { border-color: transparent; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 12px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  font-size: 13px; font-weight: 600;
+  padding: 7px 12px; border: 1px solid transparent; cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  color: inherit;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary {
@@ -187,41 +196,27 @@ html, body, #root {
 }
 
 .btn-success { background: #059669; color: #fff !important; }
-.btn-success:hover:not(:disabled) { background: #047857; }
-.btn-danger { background: #dc2626; color: #fff !important; }
-.btn-danger:hover:not(:disabled) { background: #b91c1c; }
 .btn-ghost {
   background: #fff;
-  border: 1px solid var(--color-line);
   color: #0a0a0a;
+  border-color: var(--color-line);
 }
-.btn-ghost:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: var(--color-line-strong);
-}
-.btn-sm { height: 30px; padding: 0 10px; font-size: 12px; }
-
-button {
-  color: #0a0a0a;
-  background: transparent;
-  border: none;
-  font: inherit;
-}
+.btn-ghost:hover:not(:disabled) { background: #f8fafc; }
+.btn-danger { background: #dc2626; color: #fff !important; }
 
 .field {
-  height: 34px;
-  padding: 0 10px;
+  width: 100%;
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 13px;
   background: #fff;
   color: #0a0a0a;
-  font-size: 13px;
   font-weight: 500;
 }
 .field:focus {
   border-color: #93c5fd;
   box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
-  outline: none;
 }
 .field::placeholder { color: #64748b; font-weight: 400; }
 
