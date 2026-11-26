@@ -19,15 +19,18 @@ export default function Sales({ showToast }) {
 
   const load = useCallback(async () => {
     try {
-      setRows(
-        await api.invoices.list({
-          customerSearch: customerSearch.trim() || undefined,
-          search: search.trim() || undefined,
-          mode: mode || undefined,
-          fromDate: fromDate ? dayStart(fromDate) : undefined,
-          toDate: toDate ? dayEnd(toDate) : undefined
-        })
-      );
+      let list = await api.invoices.list({
+        customerSearch: customerSearch.trim() || undefined,
+        search: search.trim() || undefined,
+        mode: mode || undefined,
+        fromDate: fromDate ? dayStart(fromDate) : undefined,
+        toDate: toDate ? dayEnd(toDate) : undefined
+      });
+      const cq = customerSearch.trim().toLowerCase();
+      if (cq) {
+        list = list.filter((r) => (r.customerName || '').toLowerCase().includes(cq));
+      }
+      setRows(list);
     } catch (e) {
       showToast(e.message, 'error');
     }
