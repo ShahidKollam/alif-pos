@@ -20,6 +20,7 @@ export function registerCustomersIpc() {
   ipcMain.handle('customers:update', wrap((_, id, d) => h.updateCustomer(asId(id), asObject(d))));
   ipcMain.handle('customers:setActive', wrap((_, id, a) => h.setCustomerActive(asId(id), !!a)));
   ipcMain.handle('customers:ledger', wrap((_, id, limit) => h.getLedger(asId(id), limit || 100)));
+  ipcMain.handle('customers:summary', wrap((_, id) => h.getCustomerSummary(asId(id))));
   ipcMain.handle('customers:collectPayment', wrap((_, d) => {
     const data = asObject(d);
     asId(data.customerId, 'customerId');

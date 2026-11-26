@@ -11,6 +11,7 @@ function mapProduct(row) {
     purchaseCost: fromPaise(row.purchase_cost_paise),
     wholesalePrice: fromPaise(row.wholesale_price_paise),
     retailPrice: fromPaise(row.retail_price_paise),
+    mrp: fromPaise(row.mrp_paise),
     openingStock: Number(row.opening_stock) || 0,
     currentStock: Number(row.current_stock) || 0,
     minStockLevel: Number(row.min_stock_level) || 0,
@@ -66,7 +67,8 @@ export function createProduct(data) {
   const wholesale = Number(data.wholesalePrice) || 0;
   const retail = Number(data.retailPrice) || 0;
   const cost = Number(data.purchaseCost) || 0;
-  if (wholesale < 0 || retail < 0 || cost < 0) throw new Error('Prices cannot be negative');
+  const mrp = data.mrp === undefined || data.mrp === null || data.mrp === '' ? retail : Number(data.mrp) || 0;
+  if (wholesale < 0 || retail < 0 || cost < 0 || mrp < 0) throw new Error('Prices cannot be negative');
   const opening = Number(data.openingStock) || 0;
   const minStock = Number(data.minStockLevel) || 0;
   if (opening < 0 || minStock < 0) throw new Error('Stock cannot be negative');
@@ -80,9 +82,9 @@ export function createProduct(data) {
   const result = db.prepare(`
     INSERT INTO products (
       product_code, name, category, unit,
-      purchase_cost_paise, wholesale_price_paise, retail_price_paise,
+      purchase_cost_paise, wholesale_price_paise, retail_price_paise, mrp_paise,
       opening_stock, current_stock, min_stock_level, is_active, is_demo
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,1,?)
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?)
   `).run(
     code,
     String(data.name).trim(),
@@ -91,6 +93,7 @@ export function createProduct(data) {
     toPaise(cost),
     toPaise(wholesale),
     toPaise(retail),
+    toPaise(mrp),
     opening,
     opening,
     minStock,
@@ -119,7 +122,8 @@ export function updateProduct(id, data) {
   const wholesale = Number(data.wholesalePrice) || 0;
   const retail = Number(data.retailPrice) || 0;
   const cost = Number(data.purchaseCost) || 0;
-  if (wholesale < 0 || retail < 0 || cost < 0) throw new Error('Prices cannot be negative');
+  const mrp = Number(data.mrp) || 0;
+  if (wholesale < 0 || retail < 0 || cost < 0 || mrp < 0) throw new Error('Prices cannot be negative');
 
   const code = data.productCode ? String(data.productCode).trim() : null;
   if (code) {
@@ -130,7 +134,7 @@ export function updateProduct(id, data) {
   db.prepare(`
     UPDATE products SET
       product_code=?, name=?, category=?, unit=?,
-      purchase_cost_paise=?, wholesale_price_paise=?, retail_price_paise=?,
+      purchase_cost_paise=?, wholesale_price_paise=?, retail_price_paise=?, mrp_paise=?,
       min_stock_level=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
@@ -141,6 +145,7 @@ export function updateProduct(id, data) {
     toPaise(cost),
     toPaise(wholesale),
     toPaise(retail),
+    toPaise(mrp),
     Number(data.minStockLevel) || 0,
     id
   );

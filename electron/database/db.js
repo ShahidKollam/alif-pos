@@ -400,6 +400,33 @@ function runMigrations() {
       throw e;
     }
   }
+
+  if (!applied.has(7)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.run('ALTER TABLE products ADD COLUMN mrp_paise INTEGER NOT NULL DEFAULT 0');
+      rawDb.run('UPDATE products SET mrp_paise = retail_price_paise WHERE mrp_paise = 0');
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (7)');
+      rawDb.run('COMMIT');
+      console.log('Migration 7 applied: products.mrp_paise');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
+
+  if (!applied.has(8)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.run('ALTER TABLE ledger_entries ADD COLUMN payment_method TEXT');
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (8)');
+      rawDb.run('COMMIT');
+      console.log('Migration 8 applied: ledger payment method');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
 }
 
 export function toPaise(amount) {

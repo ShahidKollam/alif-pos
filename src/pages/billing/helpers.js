@@ -29,7 +29,7 @@ export function nextTabId() {
 }
 
 export function emptyRow() {
-  return { rowKey: `r${rowSeq++}`, productId: null, productName: '', category: null, stock: null, wholesalePrice: 0, retailPrice: 0, quantity: '', rateOverride: '', verified: false, hasPersonalPrice: false };
+  return { rowKey: `r${rowSeq++}`, productId: null, productName: '', category: null, stock: null, wholesalePrice: 0, retailPrice: 0, mrp: 0, quantity: '', rateOverride: '', verified: false, hasPersonalPrice: false };
 }
 
 export function newTab() {
@@ -50,7 +50,7 @@ export function migrateItems(items) {
   if (!Array.isArray(items) || !items.length) return [emptyRow()];
   return items.map((it) => ({
     rowKey: it.rowKey || `r${rowSeq++}`, productId: it.productId ?? null, productName: it.productName || '', category: (it.category && String(it.category).trim()) || null,
-    stock: it.stock ?? null, wholesalePrice: it.wholesalePrice ?? 0, retailPrice: it.retailPrice ?? 0,
+    stock: it.stock ?? null, wholesalePrice: it.wholesalePrice ?? 0, retailPrice: it.retailPrice ?? 0, mrp: it.mrp ?? 0,
     quantity: it.quantity === 0 || it.quantity ? it.quantity : '', rateOverride: it.rateOverride != null && it.rateOverride !== '' ? it.rateOverride : '', verified: !!it.verified, hasPersonalPrice: !!it.hasPersonalPrice
   }));
 }

@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('alif', {
     update: (id, d) => ipcRenderer.invoke('customers:update', id, d),
     setActive: (id, a) => ipcRenderer.invoke('customers:setActive', id, a),
     ledger: (id, limit) => ipcRenderer.invoke('customers:ledger', id, limit),
+    summary: (id) => ipcRenderer.invoke('customers:summary', id),
     collectPayment: (d) => ipcRenderer.invoke('customers:collectPayment', d)
   },
   stock: {

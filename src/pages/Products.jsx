@@ -4,7 +4,7 @@ import PageToolbar from '../components/PageToolbar';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
 
-const empty = { name: '', productCode: '', category: '', unit: 'piece', purchaseCost: '', wholesalePrice: '', retailPrice: '', openingStock: '', minStockLevel: '' };
+const empty = { name: '', productCode: '', category: '', unit: 'piece', purchaseCost: '', wholesalePrice: '', retailPrice: '', mrp: '', openingStock: '', minStockLevel: '' };
 
 export default function Products({ showToast }) {
   const [products, setProducts] = useState([]);
@@ -39,7 +39,7 @@ export default function Products({ showToast }) {
   const openEdit = (p) => {
     setForm({
       name: p.name, productCode: p.productCode || '', category: p.category || '', unit: p.unit || 'piece',
-      purchaseCost: p.purchaseCost, wholesalePrice: p.wholesalePrice, retailPrice: p.retailPrice,
+      purchaseCost: p.purchaseCost, wholesalePrice: p.wholesalePrice, retailPrice: p.retailPrice, mrp: p.mrp,
       openingStock: p.openingStock, minStockLevel: p.minStockLevel
     });
     setModal(p);
@@ -54,7 +54,7 @@ export default function Products({ showToast }) {
         productCode: modal === 'add' ? null : (form.productCode || null),
         category: form.category || null, unit: form.unit || 'piece',
         purchaseCost: Number(form.purchaseCost) || 0, wholesalePrice: Number(form.wholesalePrice) || 0,
-        retailPrice: Number(form.retailPrice) || 0, openingStock: Number(form.openingStock) || 0, minStockLevel: Number(form.minStockLevel) || 0
+        retailPrice: Number(form.retailPrice) || 0, mrp: Number(form.mrp) || 0, openingStock: Number(form.openingStock) || 0, minStockLevel: Number(form.minStockLevel) || 0
       };
       if (modal === 'add') { await api.products.create(payload); showToast('Product created', 'success'); }
       else { await api.products.update(modal.id, payload); showToast('Product updated', 'success'); }
@@ -85,11 +85,11 @@ export default function Products({ showToast }) {
           <thead className="sticky top-0 z-10"><tr>
             <th className="text-center" style={{ width: 40 }}>#</th>
             <th>Name</th><th>Code</th><th>Category</th><th className="text-right">Stock</th>
-            <th className="text-right">Wholesale</th><th className="text-right">Retail</th><th className="text-right">Cost</th><th>Status</th><th></th>
+            <th className="text-right">Wholesale</th><th className="text-right">Retail</th><th className="text-right">MRP</th><th className="text-right">Cost</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={10} className="text-center text-slate-400 py-10">Loading…</td></tr>
-              : products.length === 0 ? <tr><td colSpan={10} className="text-center text-slate-400 py-10">No products</td></tr>
+            {loading ? <tr><td colSpan={11} className="text-center text-slate-400 py-10">Loading…</td></tr>
+              : products.length === 0 ? <tr><td colSpan={11} className="text-center text-slate-400 py-10">No products</td></tr>
               : products.map((p, idx) => (
                 <tr key={p.id} className={!p.isActive ? 'opacity-50' : ''}>
                   <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
@@ -99,6 +99,7 @@ export default function Products({ showToast }) {
                   <td className="text-right">{p.currentStock}</td>
                   <td className="text-right">{formatINR(p.wholesalePrice)}</td>
                   <td className="text-right">{formatINR(p.retailPrice)}</td>
+                  <td className="text-right">{formatINR(p.mrp)}</td>
                   <td className="text-right text-slate-500">{formatINR(p.purchaseCost)}</td>
                   <td><span className={`badge ${p.isActive ? 'badge-green' : 'badge-slate'}`}>{p.isActive ? 'Active' : 'Off'}</span></td>
                   <td>
@@ -127,12 +128,13 @@ export default function Products({ showToast }) {
               <div><label className="text-xs text-slate-500">Category</label><input className="field mt-1" list="cats" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /><datalist id="cats">{categories.map((c) => <option key={c} value={c} />)}</datalist></div>
               <div><label className="text-xs text-slate-500">Unit</label>
                 <select className="field mt-1" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-                  {['piece','box','packet','kg','litre','bottle','dozen'].map((u) => <option key={u}>{u}</option>)}
+                  <option value="piece">Piece (PCS)</option><option value="box">Box</option><option value="packet">Packet</option><option value="kg">KG</option><option value="gram">Gram (GM)</option><option value="litre">Litre (L)</option><option value="ml">ML</option><option value="bottle">Bottle</option><option value="dozen">Dozen</option><option value="meter">Meter (MTR)</option>
                 </select>
               </div>
               <div><label className="text-xs text-slate-500">Purchase cost ₹</label><input type="number" className="field mt-1" value={form.purchaseCost} onChange={(e) => setForm({ ...form, purchaseCost: e.target.value })} /></div>
               <div><label className="text-xs text-slate-500">Wholesale ₹</label><input type="number" className="field mt-1" value={form.wholesalePrice} onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })} /></div>
               <div><label className="text-xs text-slate-500">Retail ₹</label><input type="number" className="field mt-1" value={form.retailPrice} onChange={(e) => setForm({ ...form, retailPrice: e.target.value })} /></div>
+              <div><label className="text-xs text-slate-500">MRP ₹</label><input type="number" min="0" className="field mt-1" value={form.mrp} onChange={(e) => setForm({ ...form, mrp: e.target.value })} /></div>
               {modal === 'add' && <div><label className="text-xs text-slate-500">Opening stock</label><input type="number" className="field mt-1" value={form.openingStock} onChange={(e) => setForm({ ...form, openingStock: e.target.value })} /></div>}
               <div><label className="text-xs text-slate-500">Min stock</label><input type="number" className="field mt-1" value={form.minStockLevel} onChange={(e) => setForm({ ...form, minStockLevel: e.target.value })} /></div>
             </div>
