@@ -40,6 +40,7 @@ export const api = {
     update: (id, d) => a() ? a().customers.update(id, d) : notAvailable(),
     setActive: (id, x) => a() ? a().customers.setActive(id, x) : notAvailable(),
     ledger: (id, limit) => a() ? a().customers.ledger(id, limit) : Promise.resolve([]),
+    summary: (id) => a() ? a().customers.summary(id) : Promise.resolve(null),
     collectPayment: (d) => a() ? a().customers.collectPayment(d) : notAvailable()
   },
   stock: {

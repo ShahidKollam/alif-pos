@@ -26,7 +26,7 @@ export function registerInvoicesIpc() {
   ipcMain.handle('invoices:nextNumber', wrap((_, m, invoiceDate) => h.getNextInvoiceNumber(asMode(m), invoiceDate)));
   ipcMain.handle('invoices:save', wrap((_, d) => {
     const data = asObject(d);
-    if (!Array.isArray(data.items) || !data.items.length) throw new Error('Invoice must have items');
+    if (!Array.isArray(data.items)) data.items = [];
     return h.saveInvoice(data);
   }));
   ipcMain.handle('invoices:get', wrap((_, id) => h.getInvoice(asId(id))));

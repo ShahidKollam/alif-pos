@@ -86,8 +86,19 @@ export function getLedger(customerId, limit = 100) {
     referenceType: r.reference_type,
     referenceId: r.reference_id,
     notes: r.notes,
+    paymentMethod: r.payment_method || '',
     entryDate: r.entry_date
   }));
+}
+
+export function getCustomerSummary(customerId) {
+  const db = getDb();
+  const customer = getCustomer(customerId);
+  if (!customer) throw new Error('Customer not found');
+  const totals = db.prepare(`SELECT COALESCE(SUM(total_paise), 0) AS sales, COUNT(*) AS invoices FROM invoices WHERE customer_id = ?`).get(customerId);
+  const paid = db.prepare(`SELECT COALESCE(SUM(amount_paise), 0) AS paid FROM payments WHERE customer_id = ?`).get(customerId);
+  const profit = db.prepare(`SELECT COALESCE(SUM(ii.amount_paise - (ii.quantity * CASE WHEN ii.purchase_cost_paise > 0 THEN ii.purchase_cost_paise ELSE COALESCE(p.purchase_cost_paise, 0) END)), 0) AS profit FROM invoice_items ii JOIN invoices i ON i.id = ii.invoice_id LEFT JOIN products p ON p.id = ii.product_id WHERE i.customer_id = ?`).get(customerId);
+  return { totalSales: fromPaise(totals.sales), totalPaid: fromPaise(paid.paid), outstanding: customer.outstanding, totalInvoices: Number(totals.invoices) || 0, totalProfit: fromPaise(profit.profit) };
 }
 
 /** Collect payment against outstanding (independent of a new sale). */

@@ -222,7 +222,7 @@ export default function Billing({ showToast }) {
     if (existing) { setActiveId(existing.id); showToast(`Opened ${inv.invoiceNumber}`, 'success'); return; }
     const items = (inv.items || []).map((it) => ({
       rowKey: nextRowKey(), productId: it.productId, productName: it.productName || '', category: (it.category && String(it.category).trim()) || null, stock: null,
-      wholesalePrice: it.wholesalePrice || 0, retailPrice: it.retailPrice || 0, quantity: it.quantity,
+      wholesalePrice: it.wholesalePrice || 0, retailPrice: it.retailPrice || 0, mrp: it.mrp || 0, quantity: it.quantity,
       rateOverride: it.unitPrice != null ? String(it.unitPrice) : '', verified: !!it.verified, hasPersonalPrice: false
     }));
     items.push(emptyRow());
@@ -360,7 +360,7 @@ export default function Billing({ showToast }) {
     const hasPP = pp != null && !Number.isNaN(Number(pp));
     const items = tab.items.map((r) => r.rowKey === rowKey ? {
       ...r, productId: product.id, productName: product.name, category: (product.category && String(product.category).trim()) || null,
-      stock: product.currentStock, wholesalePrice: product.wholesalePrice, retailPrice: product.retailPrice,
+      stock: product.currentStock, wholesalePrice: product.wholesalePrice, retailPrice: product.retailPrice, mrp: product.mrp,
       quantity: r.quantity === '' || r.quantity == null ? 1 : r.quantity,
       rateOverride: hasPP ? String(pp) : '',
       hasPersonalPrice: hasPP,
@@ -411,7 +411,8 @@ export default function Billing({ showToast }) {
   }, [totalAmount, appliedAdvance, tab?.id, tab?.amountEdited]);
 
   async function saveBill() {
-    if (!filledItems.length) { showToast('Add at least one product', 'error'); return; }
+    const isBalancePayment = !filledItems.length && !!tab.customerId && oldBalance > 0 && received > 0;
+    if (!filledItems.length && !isBalancePayment) { showToast('Add a product, or enter a payment for the customer balance', 'error'); return; }
     if (saving) return;
     setSaving(true);
     try {
@@ -433,6 +434,7 @@ export default function Billing({ showToast }) {
         invoiceId: tab.savedInvoiceId || undefined,
         billingMode: tab.billMode === 'retail' ? 'retail' : 'wholesale',
         customerId: tab.customerId, customerName: tab.customerName, discount: discountVal, amountReceived: received,
+        paymentMethod: tab.payMethod || 'cash',
         treatExcessAsAdvance: tab.treatExcessAsAdvance,
         applyAdvance: !!tab.applyAdvance,
         notes: notesOut,
@@ -813,6 +815,7 @@ export default function Billing({ showToast }) {
                 <th className="text-center" style={{ width: 72 }}>Qty</th>
                 <th className="text-center" style={{ width: 36 }} title="Verified">✓</th>
                 <th className="text-right num" style={{ width: 100 }}>Rate (₹)</th>
+                <th className="text-right num" style={{ width: 90 }}>MRP (₹)</th>
                 <th className="text-right num" style={{ width: 110 }}>Amount (₹)</th>
                 <th className="text-center" style={{ width: 40 }}></th>
               </tr></thead>
@@ -886,6 +889,7 @@ export default function Billing({ showToast }) {
                           </div>
                         ) : <span className="text-slate-300">—</span>}
                       </td>
+                      <td className="text-right num text-slate-600">{row.productId ? formatINR(row.mrp) : '—'}</td>
                       <td className="text-right num font-bold text-black">{row.productId ? formatINR(itemAmount(row)) : '—'}</td>
                       <td className="text-center">{row.productId ? (<button type="button" title="Remove" onClick={() => removeRow(row.rowKey)} className="inline-flex p-1 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={14} /></button>) : null}</td>
                     </tr>
@@ -915,7 +919,7 @@ export default function Billing({ showToast }) {
             customerAdvance={customerAdvance}
             appliedAdvance={appliedAdvance}
             saving={saving}
-            hasItems={filledItems.length > 0}
+            hasItems={filledItems.length > 0 || (!!tab.customerId && oldBalance > 0 && received > 0)}
             onUpdateTab={(patch) => updateTab(tab.id, patch)}
             onSave={saveBill}
             onWhatsApp={shareWhatsApp}

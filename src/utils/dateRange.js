@@ -41,6 +41,17 @@ export function isInRange(value, fromYmd, toYmd) {
   return true;
 }
 
+/** Display a SQLite/local datetime in a consistent 12-hour format. */
+export function formatDateTime12(value) {
+  if (!value) return '—';
+  const date = new Date(String(value).replace(' ', 'T'));
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true
+  }).format(date);
+}
+
 /**
  * Preset ranges. Empty from/to = all time.
  * @returns {{ id: string, label: string, from: string, to: string }}

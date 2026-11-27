@@ -107,14 +107,14 @@ function allocateInvoiceNumber(db, mode, invoiceDate) {
 
 export function saveInvoice(data) {
   const db = getDb();
-  if (!data.items?.length) throw new Error('Invoice must have at least one item');
+  const sourceItems = Array.isArray(data.items) ? data.items : [];
   if (data.billingMode && !['wholesale', 'retail', 'auto'].includes(data.billingMode)) throw new Error('Invalid billing mode');
 
   const validatedItems = [];
   let subtotalPaise = 0;
   let retailCount = 0;
   let wholesaleCount = 0;
-  for (const item of data.items) {
+  for (const item of sourceItems) {
     const product = db.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1').get(item.productId);
     if (!product) throw new Error(`Product not found or inactive: ${item.productName || item.productId}`);
     if (item.quantity <= 0) throw new Error(`Invalid quantity for ${product.name}`);
@@ -137,6 +137,7 @@ export function saveInvoice(data) {
       amountPaise,
       wholesalePricePaise: product.wholesale_price_paise,
       retailPricePaise: product.retail_price_paise,
+      purchaseCostPaise: product.purchase_cost_paise,
       priceMode: lineMode,
       verified: item.verified ? 1 : 0
     });
@@ -150,6 +151,9 @@ export function saveInvoice(data) {
   const totalPaise = subtotalPaise - discountPaise;
   const amountReceivedPaise = toPaise(data.amountReceived || 0);
   if (amountReceivedPaise < 0) throw new Error('Amount received cannot be negative');
+  if (!validatedItems.length && (!data.customerId || amountReceivedPaise <= 0)) {
+    throw new Error('A payment-only bill requires a customer and a payment amount');
+  }
   const balanceDuePaise = Math.max(0, totalPaise - amountReceivedPaise);
   const excessPaise = Math.max(0, amountReceivedPaise - totalPaise);
   const asAdvance = !!data.treatExcessAsAdvance;
@@ -158,8 +162,8 @@ export function saveInvoice(data) {
 
   return db.transaction(() => {
     const insertItem = db.prepare(`
-      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise, verified)
-      VALUES (?,?,?,?,?,?,?,?,?)
+      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise, verified, purchase_cost_paise)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
     `);
     const updateStock = db.prepare(`UPDATE products SET current_stock = current_stock - ?, updated_at = datetime('now') WHERE id = ?`);
     const insertMovement = db.prepare(`
@@ -199,7 +203,7 @@ export function saveInvoice(data) {
       );
 
       for (const item of validatedItems) {
-        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
+        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified, item.purchaseCostPaise);
         updateStock.run(item.quantity, item.productId);
         insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', existingId, `Sale ${invoiceNumber}`);
       }
@@ -233,7 +237,7 @@ export function saveInvoice(data) {
     const invoiceId = invResult.lastInsertRowid;
 
     for (const item of validatedItems) {
-      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
+      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified, item.purchaseCostPaise);
       updateStock.run(item.quantity, item.productId);
       insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', invoiceId, `Sale ${invoiceNumber}`);
     }
@@ -276,13 +280,13 @@ export function saveInvoice(data) {
           try {
             db.prepare(`
               INSERT INTO payments (customer_id, invoice_id, amount_paise, payment_type, notes)
-              VALUES (?, ?, ?, 'receipt', ?)
-            `).run(data.customerId, invoiceId, amountReceivedPaise, `Payment for ${invoiceNumber}`);
+              VALUES (?, ?, ?, ?, ?)
+            `).run(data.customerId, invoiceId, amountReceivedPaise, data.paymentMethod || 'cash', `Payment for ${invoiceNumber}`);
           } catch (_) { }
           db.prepare(`
-            INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes)
-            VALUES (?, 'payment', ?, ?, 'invoice', ?, ?)
-          `).run(data.customerId, -amountReceivedPaise, outstanding, invoiceId, `Payment ${invoiceNumber}`);
+            INSERT INTO ledger_entries (customer_id, entry_type, amount_paise, balance_after_paise, reference_type, reference_id, notes, payment_method)
+            VALUES (?, 'payment', ?, ?, 'invoice', ?, ?, ?)
+          `).run(data.customerId, -amountReceivedPaise, outstanding, invoiceId, `Payment ${invoiceNumber}`, data.paymentMethod || 'cash');
         }
         db.prepare(`UPDATE customers SET outstanding_paise=?, advance_paise=?, updated_at=datetime('now') WHERE id=?`)
           .run(outstanding, advance, data.customerId);

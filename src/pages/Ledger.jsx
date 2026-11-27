@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
-import { rangePreset, isInRange } from '../utils/dateRange';
+import { rangePreset, isInRange, formatDateTime12 } from '../utils/dateRange';
 
 /**
  * Customer Ledger — view only.
@@ -16,6 +16,7 @@ export default function Ledger({ showToast }) {
   const [custHighlight, setCustHighlight] = useState(0);
   const [entries, setEntries] = useState([]);
   const [customer, setCustomer] = useState(null);
+  const [summary, setSummary] = useState(null);
   const initialRange = rangePreset('all');
   const [datePreset, setDatePreset] = useState(initialRange.id);
   const [fromDate, setFromDate] = useState(initialRange.from);
@@ -30,15 +31,18 @@ export default function Ledger({ showToast }) {
     if (!customerId) {
       setEntries([]);
       setCustomer(null);
+      setSummary(null);
       return;
     }
     Promise.all([
       api.customers.get(Number(customerId)),
-      api.customers.ledger(Number(customerId), 100)
+      api.customers.ledger(Number(customerId), 100),
+      api.customers.summary(Number(customerId))
     ])
-      .then(([c, led]) => {
+      .then(([c, led, totals]) => {
         setCustomer(c);
         setEntries(led);
+        setSummary(totals);
       })
       .catch((e) => showToast(e.message, 'error'));
   }, [customerId, showToast]);
@@ -67,6 +71,7 @@ export default function Ledger({ showToast }) {
       setCustomerId('');
       setCustomerQuery('');
       setCustomer(null);
+      setSummary(null);
       setEntries([]);
       return;
     }
@@ -170,6 +175,10 @@ export default function Ledger({ showToast }) {
         {!customerId ? (
           <div className="text-center text-slate-400 py-16 text-sm">Search and select a customer to view ledger</div>
         ) : (
+          <>
+          {summary && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+            {[['Total Sales', formatINR(summary.totalSales), 'text-blue-700'], ['Total Paid', formatINR(summary.totalPaid), 'text-emerald-700'], ['Outstanding', formatINR(summary.outstanding), 'text-amber-700'], ['Total Profit', formatINR(summary.totalProfit), 'text-violet-700'], ['Total Invoices', summary.totalInvoices, 'text-slate-800']].map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-4 py-3"><div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div><div className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{value}</div></div>)}
+          </div>}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <table className="pos-table">
               <thead>
@@ -178,6 +187,7 @@ export default function Ledger({ showToast }) {
                   <th>Type</th>
                   <th className="text-right num">Amount (₹)</th>
                   <th className="text-right num">Balance (₹)</th>
+                  <th>Method</th>
                   <th>Reference</th>
                   <th>Notes</th>
                 </tr>
@@ -186,18 +196,19 @@ export default function Ledger({ showToast }) {
                 {filteredEntries.map((e) => (
                   <tr key={e.id}>
                     <td className="text-slate-600 text-xs whitespace-nowrap">
-                      {e.createdAt || e.entryDate || e.date || '—'}
+                      {formatDateTime12(e.createdAt || e.entryDate || e.date)}
                     </td>
                     <td className="font-medium text-black capitalize">{(e.entryType || e.type || '—').replace(/_/g, ' ')}</td>
                     <td className="text-right num font-semibold">{formatINR(e.amount)}</td>
                     <td className="text-right num text-slate-600">{formatINR(e.balanceAfter ?? e.balance)}</td>
+                    <td className="text-xs font-semibold uppercase text-slate-600">{e.paymentMethod || '—'}</td>
                     <td className="text-xs text-slate-500">{e.reference || e.referenceType || '—'}</td>
                     <td className="text-xs text-slate-500 max-w-[200px] truncate">{e.notes || '—'}</td>
                   </tr>
                 ))}
                 {!filteredEntries.length && (
                   <tr>
-                    <td colSpan={6} className="text-center text-slate-400 py-10">
+                    <td colSpan={7} className="text-center text-slate-400 py-10">
                       No ledger entries
                     </td>
                   </tr>
@@ -205,6 +216,7 @@ export default function Ledger({ showToast }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>
