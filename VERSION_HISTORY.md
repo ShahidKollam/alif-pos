@@ -1,5 +1,16 @@
 # Alif POS — Version History
 
+## v2.4.8 — Bill print & WhatsApp template (sections + labels)
+
+- WhatsApp bill and thermal/paper print use the same section layout:
+  - **A. Bill information** — bill no, date & time, mode, customer name, mobile
+  - **B. Product details** — qty, rate, line amount
+  - **C. Bill calculation** — Subtotal, Discount, Bill Amount
+  - **D. Customer account** — Old Balance (Dr/Cr), Bill Amount, Total Amount, Paid Amount, Balance Amount (Dr/Cr)
+- Labels match Bill summary panel (Old Balance, Bill Amount, Total Amount, Paid Amount, Balance Amount)
+- Print opens a compact receipt-style HTML (≈80 mm friendly) then the system print dialog
+- Printer: still Windows USB/network; select thermal in the print dialog (see docs/PRINTER_SETUP.md)
+
 ## v2.4.7 — Billing focus: Customer on new tab, F4 → Bill no.
 
 - New bill tab (**Ctrl+T** / **F8** / plus button): cursor starts on **Customer** search (not product row)

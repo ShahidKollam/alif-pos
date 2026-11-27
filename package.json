@@ -1,6 +1,6 @@
 {
   "name": "alif-pos",
-  "version": "2.4.7",
+  "version": "2.4.8",
   "description": "Alif POS - Wholesale & Retail Billing, Stock, Customers, Ledger",
   "main": "electron/main.js",
   "author": "Alif POS",
