@@ -137,6 +137,7 @@ export function saveInvoice(data) {
       amountPaise,
       wholesalePricePaise: product.wholesale_price_paise,
       retailPricePaise: product.retail_price_paise,
+      purchaseCostPaise: product.purchase_cost_paise,
       priceMode: lineMode,
       verified: item.verified ? 1 : 0
     });
@@ -161,8 +162,8 @@ export function saveInvoice(data) {
 
   return db.transaction(() => {
     const insertItem = db.prepare(`
-      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise, verified)
-      VALUES (?,?,?,?,?,?,?,?,?)
+      INSERT INTO invoice_items (invoice_id, product_id, product_name, quantity, unit_price_paise, amount_paise, wholesale_price_paise, retail_price_paise, verified, purchase_cost_paise)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
     `);
     const updateStock = db.prepare(`UPDATE products SET current_stock = current_stock - ?, updated_at = datetime('now') WHERE id = ?`);
     const insertMovement = db.prepare(`
@@ -202,7 +203,7 @@ export function saveInvoice(data) {
       );
 
       for (const item of validatedItems) {
-        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
+        insertItem.run(existingId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified, item.purchaseCostPaise);
         updateStock.run(item.quantity, item.productId);
         insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', existingId, `Sale ${invoiceNumber}`);
       }
@@ -236,7 +237,7 @@ export function saveInvoice(data) {
     const invoiceId = invResult.lastInsertRowid;
 
     for (const item of validatedItems) {
-      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified);
+      insertItem.run(invoiceId, item.productId, item.productName, item.quantity, item.unitPricePaise, item.amountPaise, item.wholesalePricePaise, item.retailPricePaise, item.verified, item.purchaseCostPaise);
       updateStock.run(item.quantity, item.productId);
       insertMovement.run(item.productId, 'sale', -item.quantity, 'invoice', invoiceId, `Sale ${invoiceNumber}`);
     }

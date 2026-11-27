@@ -3,7 +3,7 @@ import { Eye, Search } from 'lucide-react';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
-import { rangePreset, dayStart, dayEnd } from '../utils/dateRange';
+import { rangePreset, dayStart, dayEnd, formatDateTime12 } from '../utils/dateRange';
 
 const initialRange = rangePreset('month');
 
@@ -143,7 +143,7 @@ export default function Sales({ showToast }) {
                 <tr key={r.id}>
                   <td className="text-center text-slate-500 font-medium">{idx + 1}</td>
                   <td className="font-mono font-medium text-black">{r.invoiceNumber}</td>
-                  <td className="text-xs text-slate-500">{r.invoiceDate}</td>
+                  <td className="text-xs text-slate-500 whitespace-nowrap">{formatDateTime12(r.invoiceDate)}</td>
                   <td>
                     <span className={`badge ${r.billingMode === 'wholesale' ? 'badge-blue' : 'badge-slate'}`}>{r.billingMode}</span>
                   </td>
@@ -177,7 +177,7 @@ export default function Sales({ showToast }) {
               <div>
                 <div className="font-semibold">{detail.invoiceNumber}</div>
                 <div className="text-xs text-slate-500">
-                  {detail.invoiceDate} · {detail.billingMode}
+                  {formatDateTime12(detail.invoiceDate)} · {detail.billingMode}
                   {detail.customerName ? ` · ${detail.customerName}` : ''}
                 </div>
               </div>

@@ -427,6 +427,19 @@ function runMigrations() {
       throw e;
     }
   }
+
+  if (!applied.has(9)) {
+    rawDb.run('BEGIN');
+    try {
+      rawDb.run('ALTER TABLE invoice_items ADD COLUMN purchase_cost_paise INTEGER NOT NULL DEFAULT 0');
+      rawDb.run('INSERT INTO schema_migrations (version) VALUES (9)');
+      rawDb.run('COMMIT');
+      console.log('Migration 9 applied: invoice item cost snapshot');
+    } catch (e) {
+      try { rawDb.run('ROLLBACK'); } catch (_) {}
+      throw e;
+    }
+  }
 }
 
 export function toPaise(amount) {

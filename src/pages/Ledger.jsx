@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { api } from '../utils/api';
 import { formatINR } from '../utils/money';
-import { rangePreset, isInRange } from '../utils/dateRange';
+import { rangePreset, isInRange, formatDateTime12 } from '../utils/dateRange';
 
 /**
  * Customer Ledger — view only.
@@ -176,8 +176,8 @@ export default function Ledger({ showToast }) {
           <div className="text-center text-slate-400 py-16 text-sm">Search and select a customer to view ledger</div>
         ) : (
           <>
-          {summary && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            {[['Total Sales', formatINR(summary.totalSales), 'text-blue-700'], ['Total Paid', formatINR(summary.totalPaid), 'text-emerald-700'], ['Outstanding', formatINR(summary.outstanding), 'text-amber-700'], ['Total Invoices', summary.totalInvoices, 'text-slate-800']].map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-4 py-3"><div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div><div className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{value}</div></div>)}
+          {summary && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+            {[['Total Sales', formatINR(summary.totalSales), 'text-blue-700'], ['Total Paid', formatINR(summary.totalPaid), 'text-emerald-700'], ['Outstanding', formatINR(summary.outstanding), 'text-amber-700'], ['Total Profit', formatINR(summary.totalProfit), 'text-violet-700'], ['Total Invoices', summary.totalInvoices, 'text-slate-800']].map(([label, value, color]) => <div key={label} className="rounded-xl border border-slate-200 bg-white px-4 py-3"><div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div><div className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{value}</div></div>)}
           </div>}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <table className="pos-table">
@@ -196,7 +196,7 @@ export default function Ledger({ showToast }) {
                 {filteredEntries.map((e) => (
                   <tr key={e.id}>
                     <td className="text-slate-600 text-xs whitespace-nowrap">
-                      {e.createdAt || e.entryDate || e.date || '—'}
+                      {formatDateTime12(e.createdAt || e.entryDate || e.date)}
                     </td>
                     <td className="font-medium text-black capitalize">{(e.entryType || e.type || '—').replace(/_/g, ' ')}</td>
                     <td className="text-right num font-semibold">{formatINR(e.amount)}</td>
